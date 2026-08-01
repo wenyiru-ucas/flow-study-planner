@@ -1,0 +1,46 @@
+{
+  "name": "flow-study-planner",
+  "version": "1.0.0",
+  "description": "Flow 学习计划助手 — KPI驱动进度追踪 + 番茄钟 + 行测专项训练",
+  "author": "Flow",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --mac"
+  },
+  "build": {
+    "appId": "com.flow.study-planner",
+    "productName": "Flow学习计划助手",
+    "directories": {
+      "output": "dist"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "build/icon.icns",
+      "category": "public.app-category.productivity",
+      "darkModeSupport": true,
+      "extendInfo": {
+        "LSUIElement": false
+      }
+    },
+    "dmg": {
+      "title": "Flow学习计划助手",
+      "contents": [
+        { "x": 130, "y": 220 },
+        { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
+      ]
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "index.html",
+      "modules/**/*",
+      "styles.css",
+      "vendor/**/*"
+    ]
+  },
+  "devDependencies": {
+    "electron": "^33.4.0",
+    "electron-builder": "^25.1.8"
+  }
+}

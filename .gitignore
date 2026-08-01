@@ -1,0 +1,15 @@
+# ── 依赖与缓存（可重新生成，不备份） ──
+node_modules/
+.npm-cache/
+
+# ── 打包产物（可重新生成） ──
+dist/
+
+# ── Electron 运行时数据（开发模式，含 Chromium 缓存） ──
+electron-userdata/
+
+# ── 系统文件 ──
+.DS_Store
+
+# ── 工具内部状态 ──
+.reasonix/

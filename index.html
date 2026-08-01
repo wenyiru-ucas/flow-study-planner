@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flow — 学习计划助手</title>
+    <script src="./vendor/chart.umd.min.js"></script>
+    </script>
+    <link rel="stylesheet" href="./styles.css">
+</head>
+
+<body>
+    <div class="bg-orb bg-orb-1"></div>
+    <div class="bg-orb bg-orb-2"></div>
+
+    <div class="app">
+        <nav class="sidebar">
+            <div class="logo"><span>小文同学</span></div>
+            <button class="nav-item active" data-page="planner"><span class="icon">📅</span> <span>月度规划</span></button>
+            <button class="nav-item" data-page="today"><span class="icon">🎯</span> <span>今日任务</span></button>
+            <button class="nav-item" data-page="analytics"><span class="icon">📈</span> <span>数据分析</span></button>
+            <button class="nav-item" data-page="countdown"><span class="icon">⏳</span> <span>倒数日</span></button>
+            <button class="nav-item" data-page="wrongbook"><span class="icon">📕</span> <span>错题本</span></button>
+            <button class="nav-item" data-page="settings"><span class="icon">⚙️</span> <span>设置</span></button>
+            <div class="sidebar-footer">
+                <div style="margin-bottom:8px;">
+                    <div style="font-size:11px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.04em;">⏱ 今日学习</div>
+                    <div style="font-size:20px;font-weight:700;" id="sidebar-today-min">0分</div>
+                </div>
+                <div>
+                    <div style="font-size:11px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.04em;">🔥 连续打卡</div>
+                    <div style="font-size:20px;font-weight:700;" id="sidebar-streak">0 天</div>
+                </div>
+            </div>
+        </nav>
+
+        <main class="main">
+            <div class="topbar">
+                <div>
+                    <div class="greeting" id="greeting">👋 早上好</div>
+                    <div class="date-sub" id="today-date"></div>
+                </div>
+                <div style="display:flex;gap:12px;align-items:center;" id="top-countdowns"></div>
+                <div class="actions">
+                    <button class="btn btn-ghost btn-sm" id="theme-toggle" onclick="toggleTheme()" title="切换深色/浅色模式">🌙</button>
+                    <button class="btn btn-ghost btn-sm" onclick="toggleFullscreen()">⛶ 全屏</button>
+                    <button class="btn btn-ghost btn-sm" onclick="triggerAI()">🤖 AI 重排</button>
+                    <button class="btn btn-ghost btn-sm" onclick="checkInToday()">✅ 打卡</button>
+                </div>
+            </div>
+
+            <!-- ═══ Monthly Planner ═══ -->
+            <div class="page active" id="page-planner">
+                <div class="dual-panel" style="display:flex;gap:16px;margin-bottom:16px;animation:slideUp 0.5s 0.3s var(--spring-slow) both;">
+                    <div class="goal-bar" style="flex:1;margin-bottom:0;display:block;">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                            <span style="font-weight:600;font-size:13px;">🎯 核心目标</span>
+                            <span style="font-size:10px;color:var(--text3);" id="goal-month-label">6月</span>
+                        </div>
+                        <div style="display:flex;flex-direction:column;gap:6px;" id="goal-lines">
+                            <div style="display:flex;align-items:center;gap:8px;"><span style="font-weight:700;color:var(--accent);font-size:14px;min-width:16px;">1</span><input class="goal-line-input" data-idx="0" placeholder="第一条核心目标…" oninput="saveGoalLines()"></div>
+                            <div style="display:flex;align-items:center;gap:8px;"><span style="font-weight:700;color:var(--accent);font-size:14px;min-width:16px;">2</span><input class="goal-line-input" data-idx="1" placeholder="第二条核心目标…" oninput="saveGoalLines()"></div>
+                            <div style="display:flex;align-items:center;gap:8px;"><span style="font-weight:700;color:var(--accent);font-size:14px;min-width:16px;">3</span><input class="goal-line-input" data-idx="2" placeholder="第三条核心目标…" oninput="saveGoalLines()"></div>
+                        </div>
+                    </div>
+                    <div class="goal-bar" style="flex:1;margin-bottom:0;display:block;">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                            <span style="font-weight:600;font-size:13px;">📋 临时待办</span>
+                            <span style="font-size:10px;color:var(--text3);">不纳入计划</span>
+                        </div>
+                        <div id="temp-list" style="max-height:90px;overflow-y:auto;"></div>
+                        <div style="display:flex;gap:6px;margin-top:6px;">
+                            <input id="temp-input" placeholder="添加…" style="flex:1;padding:6px 10px;border:1px solid var(--border-input);border-radius:8px;font-size:12px;font-family:inherit;outline:none;background:var(--fill-subtle);" onkeydown="if(event.key==='Enter')addTempTask()">
+                            <button class="btn btn-ghost btn-sm" style="padding:4px 10px;font-size:12px;" onclick="addTempTask()">＋</button>
+                        </div>
+                    </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;" id="month-nav-row">
+                    <button class="btn btn-ghost btn-sm" onclick="navPlannerMonth(-1)">◀ 上月</button>
+                    <span style="font-weight:700;font-size:16px;" id="planner-month-title">2025年6月</span>
+                    <button class="btn btn-ghost btn-sm" onclick="navPlannerMonth(1)">下月 ▶</button>
+                    <button class="btn btn-outline btn-sm" style="margin-left:8px;" onclick="goPlannerToday()">本月</button>
+                    <select id="plan-sort" onchange="renderPlanner()" style="margin-left:auto;padding:6px 10px;border:1px solid var(--border-outline);border-radius:8px;font-size:12px;font-family:inherit;background:var(--surface);color:var(--text);outline:none;">
+                        <option value="default">默认排序</option>
+                        <option value="actual-desc">实际进度 ↓</option>
+                        <option value="actual-asc">实际进度 ↑</option>
+                        <option value="gap-asc">进度差 ↑（滞后优先）</option>
+                        <option value="gap-desc">进度差 ↓</option>
+                        <option value="pomo-desc">番茄时长 ↓</option>
+                        <option value="pomo-asc">番茄时长 ↑</option>
+                    </select>
+                    <button class="btn btn-primary btn-sm" style="margin-left:8px;" onclick="showTaskModal()">＋ 新建任务</button>
+                </div>
+                <div class="plan-table-wrap">
+                    <table class="plan-table" id="plan-table">
+                        <thead>
+                            <tr>
+                                <th></th><th>项目</th><th>🍅</th><th>期限</th><th>总额</th><th>已完成</th>
+                                <th>序时</th><th>实际</th><th>进度差</th>
+                                <th>今日指标</th><th>消负</th>
+                                <th>类型</th>
+                            </tr>
+                        </thead>
+                        <tbody id="plan-tbody"></tbody>
+                    </table>
+                </div>
+                <div class="past-section" id="past-months"></div>
+            </div>
+
+            <!-- ═══ Today Page ═══ -->
+            <div class="page" id="page-today">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                    <h2 style="font-size:22px;font-weight:700;">🎯 今日任务</h2>
+                    <button class="btn btn-primary btn-sm" onclick="showTaskModal()">＋ 新建任务</button>
+                </div>
+                <div class="task-list" id="today-task-list"></div>
+            </div>
+
+            <!-- ═══ Analytics ═══ -->
+            <div class="page" id="page-analytics">
+                <h2 style="font-size:22px;font-weight:700;margin-bottom:24px;">📈 数据分析</h2>
+                <div style="display:flex;gap:8px;margin-bottom:20px;" id="analytics-period">
+                    <button class="btn btn-ghost btn-sm analytics-period-btn active" data-period="week">📅 本周</button>
+                    <button class="btn btn-ghost btn-sm analytics-period-btn" data-period="month">📆 本月</button>
+                    <button class="btn btn-ghost btn-sm analytics-period-btn" data-period="year">📊 本年</button>
+                </div>
+                <div class="chart-grid">
+                    <div class="chart-card"><h3>各科学习时长（含番茄钟）</h3><canvas id="chart-subject"></canvas></div>
+                    <div class="chart-card"><h3>标签学习时长分布</h3><canvas id="chart-tags"></canvas></div>
+                    <div class="chart-card"><h3>近7天学习趋势</h3><canvas id="chart-trend"></canvas></div>
+                    <div class="chart-card"><h3>各任务进度完成率</h3><canvas id="chart-progress"></canvas></div>
+                    <div class="chart-card"><h3>📊 行测各模块正确率</h3><canvas id="chart-exercise-accuracy"></canvas></div>
+                    <div class="chart-card"><h3>⏱ 行测单题平均耗时（虚线=建议参考）</h3><canvas id="chart-exercise-speed"></canvas></div>
+                    <div class="chart-card" style="grid-column:1/-1;"><h3>📈 各模块正确率趋势</h3><canvas id="chart-exercise-trend"></canvas></div>
+                </div>
+            </div>
+
+            <!-- ═══ Countdown ═══ -->
+            <div class="page" id="page-countdown">
+                <h2 style="font-size:22px;font-weight:700;margin-bottom:20px;">⏳ 倒数日</h2>
+                <div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;" id="countdown-form">
+                    <input id="cd-name" placeholder="考试/事件名称" style="padding:8px 14px;border:1px solid var(--border-outline);border-radius:10px;font-size:14px;font-family:inherit;outline:none;background:var(--surface);flex:1;min-width:160px;">
+                    <input type="date" id="cd-date" style="padding:8px 14px;border:1px solid var(--border-outline);border-radius:10px;font-size:14px;font-family:inherit;outline:none;background:var(--surface);">
+                    <button class="btn btn-primary btn-sm" onclick="addCountdown()">＋ 添加</button>
+                </div>
+                <div class="task-list" id="countdown-list"></div>
+            </div>
+
+            <!-- ═══ Settings ═══ -->
+            <div class="page" id="page-settings">
+                <h2 style="font-size:22px;font-weight:700;margin-bottom:24px;">⚙️ 设置</h2>
+                <div class="setting-card">
+                    <h3 style="font-size:16px;font-weight:700;margin-bottom:16px;">🤖 DeepSeek API</h3>
+                    <div class="form-group"><label>API Key</label><input type="password" id="api-key" placeholder="sk-..." style="font-family:monospace;"></div>
+                    <button class="btn btn-ghost btn-sm" onclick="saveSettings()">💾 保存</button>
+                    <span id="saved-msg" style="margin-left:8px;font-size:12px;color:var(--green);display:none;">✓</span>
+                </div>
+                <div class="setting-card">
+                    <h3 style="font-size:16px;font-weight:700;margin-bottom:16px;">🔔 推送提醒</h3>
+                    <div class="form-group"><label>每日提醒时间</label><input type="time" id="reminder-time" value="09:00"></div>
+                    <button class="btn btn-ghost btn-sm" onclick="requestNotif()">🔔 开启通知</button>
+                    <button class="btn btn-ghost btn-sm" style="margin-left:8px;" onclick="saveSettings()">💾 保存</button>
+                </div>
+                <div class="setting-card">
+                    <h3 style="font-size:16px;font-weight:700;margin-bottom:16px;">🍅 番茄钟</h3>
+                    <div class="form-row">
+                        <div class="form-group"><label>专注时长（分钟）</label><input type="number" id="pomo-work" value="60" min="5" max="120"></div>
+                        <div class="form-group"><label>休息时长（分钟）</label><input type="number" id="pomo-break" value="5" min="1" max="30"></div>
+                    </div>
+                    <button class="btn btn-ghost btn-sm" onclick="saveSettings()">💾 保存</button>
+                </div>
+                <div class="setting-card">
+                    <h3 style="font-size:16px;font-weight:700;margin-bottom:16px;">📝 错题标签 & 参考用时</h3>
+                    <div class="form-group"><label>错题标签（逗号分隔）</label><input id="wrong-tags-input" placeholder="概念不熟, 粗心, 时间不够蒙的, 计算错误"></div>
+                    <div class="form-group"><label>各模块建议单题用时（分钟）</label></div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;" id="ref-times-grid"></div>
+                    <button class="btn btn-ghost btn-sm" onclick="saveSettings()" style="margin-top:8px;">💾 保存</button>
+                </div>
+                <div class="setting-card">
+                    <h3 style="font-size:16px;font-weight:700;margin-bottom:16px;">🍅 番茄钟记录管理</h3>
+                    <p style="font-size:12px;color:var(--text2);margin-bottom:12px;">可删除异常记录（如忘记关闭导致的超长计时）</p>
+                    <div id="pomo-session-list" style="max-height:200px;overflow-y:auto;font-size:12px;"></div>
+                </div>
+                <!-- ═══ 【第2步新增】数据备份与恢复卡片 ═══ -->
+                <div class="setting-card" id="backup-card">
+                    <h3 style="font-size:16px;font-weight:700;margin-bottom:16px;">💾 数据备份与恢复</h3>
+                    <div id="backup-stats" style="margin-bottom:12px;font-size:12px;">
+                        <span style="color:var(--text3);">统计中…</span>
+                    </div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+                        <button class="btn btn-outline btn-sm" onclick="manualSnapshot()">📦 创建手动快照</button>
+                        <button class="btn btn-outline btn-sm" onclick="renderSnapshotList();this.parentElement.nextElementSibling.style.display='block';">📜 查看历史快照</button>
+                        <button class="btn btn-outline btn-sm" style="color:var(--red);border-color:var(--red)" onclick="cleanupSnapshots()">🗑 清理旧快照</button>
+                    </div>
+                    <div id="snapshot-list" style="display:none;max-height:200px;overflow-y:auto;font-size:12px;border-top:1px solid var(--border-subtle);padding-top:10px;">
+                        <span style="color:var(--text3);">加载中…</span>
+                    </div>
+                </div>
+                <!-- ═══ 原数据管理卡片 ═══ -->
+                <div class="setting-card">
+                    <h3 style="font-size:16px;font-weight:700;margin-bottom:16px;">📁 数据管理</h3>
+                    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                        <button class="btn btn-outline btn-sm" onclick="exportData()">📥 导出 JSON</button>
+                        <button class="btn btn-outline btn-sm" onclick="document.getElementById('import-file').click()">📤 导入 JSON</button>
+                        <input type="file" id="import-file" accept=".json" hidden onchange="importData(event)">
+                        <button class="btn btn-outline btn-sm" style="color:var(--red);border-color:var(--red)" onclick="resetData()">🗑 清空</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ═══ Wrong-Question Book ═══ -->
+            <div class="page" id="page-wrongbook">
+                <h2 style="font-size:22px;font-weight:700;margin-bottom:20px;">📕 错题本</h2>
+                <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center;">
+                    <select id="wb-module-filter" onchange="renderWrongBook()" style="padding:6px 10px;border:1px solid var(--border-outline);border-radius:8px;font-size:12px;font-family:inherit;background:var(--surface);color:var(--text);outline:none;">
+                        <option value="">全部模块</option>
+                    </select>
+                    <select id="wb-tag-filter" onchange="renderWrongBook()" style="padding:6px 10px;border:1px solid var(--border-outline);border-radius:8px;font-size:12px;font-family:inherit;background:var(--surface);color:var(--text);outline:none;">
+                        <option value="">全部标签</option>
+                    </select>
+                    <span style="flex:1;"></span>
+                    <span id="wb-summary" style="font-size:13px;color:var(--text2);"></span>
+                </div>
+                <div class="plan-table-wrap">
+                    <table class="plan-table">
+                        <thead><tr><th>日期</th><th>模块</th><th>总数</th><th>正确</th><th>正确率</th><th>用时(分)</th><th>平均单题</th><th>错题标签</th><th></th></tr></thead>
+                        <tbody id="wb-tbody"></tbody>
+                    </table>
+                </div>
+                <div id="wb-empty" style="text-align:center;padding:48px;color:var(--text2);display:none;">📝 暂无做题记录，完成一个行测任务后录入吧</div>
+            </div>
+        </main>
+    </div>
+
+    <!-- ═══ Task Modal ═══ -->
+    <div class="modal-overlay" id="task-modal" style="display:none;">
+        <div class="modal">
+            <h2 id="task-modal-title">新建任务</h2>
+            <input type="hidden" id="edit-task-id">
+            <div class="form-group"><label>项目名称</label><input id="task-name" placeholder="e.g. 毕业论文"></div>
+            <div class="form-row"><div class="form-group"><label>起点</label><input type="date" id="task-start"></div><div class="form-group"><label>终点</label><input type="date" id="task-end"></div></div>
+            <div class="form-row"><div class="form-group"><label>任务总额</label><input type="number" id="task-total" placeholder="字数/题数"></div><div class="form-group"><label>已完成</label><input type="number" id="task-done" value="0"></div></div>
+            <div class="form-row"><div class="form-group"><label>已投入天数</label><input type="number" id="task-days" value="0"></div><div class="form-group"><label>类型</label><select id="task-type"><option value="regular">常规</option><option value="temp">临时</option><option value="rest">休息</option></select></div></div>
+            <div class="form-row"><div class="form-group"><label>🍅 计时模式</label><select id="task-timer-mode"><option value="countdown">倒计时</option><option value="countup">正计时</option></select></div><div class="form-group"><label>标签颜色</label>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;" id="color-picker"></div>
+                <input type="hidden" id="task-color" value="">
+            </div></div>
+            <div class="form-group"><label>状态</label><select id="task-status"><option value="active">进行中</option><option value="done">已完成</option><option value="paused">已暂停</option></select></div>
+            <div class="form-group"><label>分类标签</label><input id="task-tags" placeholder="例如：法考、英语（逗号分隔）"></div>
+            <div class="form-group"><label>备注</label><textarea id="task-note" rows="2" placeholder="备注（可选）"></textarea></div>
+            <div style="display:flex;gap:10px;justify-content:space-between;margin-top:20px;">
+                <button class="btn btn-outline btn-sm" id="task-delete-btn" style="color:var(--red);border-color:var(--red);display:none;" onclick="deleteTaskFromModal()">🗑 删除</button>
+                <div style="display:flex;gap:10px;margin-left:auto;">
+                    <button class="btn btn-outline btn-sm" onclick="closeTaskModal()">取消</button>
+                    <button class="btn btn-primary btn-sm" onclick="saveTask()">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ Pomodoro ═══ -->
+    <div class="pomo-overlay" id="pomo-overlay" style="display:none;">
+        <div class="pomo-card">
+            <div class="pomo-phase" id="pomo-phase-label">🍅 专注中</div>
+            <div class="pomo-task" id="pomo-task-name"></div>
+            <div class="pomo-ring-wrap">
+                <svg viewBox="0 0 220 220">
+                    <circle class="ring-bg" cx="110" cy="110" r="100"/>
+                    <circle class="ring-fg" id="pomo-ring" cx="110" cy="110" r="100" stroke-dasharray="628" stroke-dashoffset="0"/>
+                </svg>
+                <div class="pomo-timer-display" id="pomo-timer">60:00</div>
+            </div>
+            <div class="pomo-actions">
+                <button class="btn btn-outline btn-sm" id="pomo-pause-btn" onclick="togglePomo()">⏸ 暂停</button>
+                <button class="btn btn-outline btn-sm" onclick="stopPomo()">⏹ 结束</button>
+                <button class="btn btn-outline btn-sm" onclick="minimizePomo()">━ 最小化</button>
+            </div>
+            <div class="pomo-post-input" id="pomo-post-input" style="display:none;">
+                <div class="ppi-label">✅ 专注完成！</div>
+                <div class="ppi-row">
+                    <input type="number" id="pomo-duration-input" placeholder="专注分钟" min="1" style="width:80px;text-align:center;">
+                    <span style="font-size:13px;color:var(--text2);display:flex;align-items:center;">分钟</span>
+                </div>
+                <div class="ppi-label" style="margin-top:12px;">📝 今天完成了多少？</div>
+                <div class="ppi-row">
+                    <input type="number" id="pomo-done-input" placeholder="输入完成量…" min="0">
+                    <button class="btn btn-primary btn-sm" onclick="submitPomoProgress()">确认</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mini pomodoro float -->
+    <div id="mini-pomo" style="position:fixed;bottom:24px;right:24px;z-index:250;background:var(--elevated);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border-radius:16px;padding:12px 18px;box-shadow:var(--mini-float-shadow);border:1px solid var(--border-glass-strong);cursor:pointer;display:none;align-items:center;gap:12px;" onclick="restorePomo()">
+        <span style="font-size:18px;">🍅</span>
+        <span style="font-weight:700;font-size:16px;font-family:'SF Mono',monospace;" id="mini-pomo-timer">60:00</span>
+        <span style="font-size:11px;color:var(--text2);" id="mini-pomo-name"></span>
+    </div>
+
+    <!-- ═══ AI Modal ═══ -->
+    <div class="modal-overlay" id="ai-modal" style="display:none;">
+        <div class="modal" style="width:560px;">
+            <h2>🤖 AI 助手</h2>
+            <p style="font-size:13px;color:var(--text2);margin-bottom:16px;">告诉我你的需求，我来操作你的任务列表</p>
+            <div class="form-group"><label>你的指令</label><textarea id="ai-context" rows="3" placeholder="例如：帮我添加一个任务「民法-真题」，从明天开始到月底，总共50道题&#10;或者：我明天有事，帮我重新规划这周的任务&#10;或者：把毕业论文的截止日期延后3天"></textarea></div>
+            <div style="background:var(--fill-subtle);border-radius:var(--radius);padding:20px;margin-top:16px;font-size:13px;line-height:1.8;max-height:250px;overflow-y:auto;display:none;" id="ai-output"></div>
+            <div style="display:none;margin-top:12px;" id="ai-actions-row">
+                <button class="btn btn-primary btn-sm" onclick="executeAIActions()">✅ 确认执行</button>
+                <button class="btn btn-outline btn-sm" onclick="closeAIModal()" style="margin-left:8px;">取消</button>
+            </div>
+            <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;" id="ai-submit-row">
+                <button class="btn btn-outline btn-sm" onclick="closeAIModal()">关闭</button>
+                <button class="btn btn-primary btn-sm" id="ai-btn" onclick="runAI()">🚀 发送指令</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ Exercise Record Modal ═══ -->
+    <div class="modal-overlay" id="exercise-modal" style="display:none;">
+        <div class="modal">
+            <h2>📝 录入做题记录</h2>
+            <p style="font-size:14px;font-weight:600;margin-bottom:16px;" id="exercise-task-name"></p>
+            <div class="form-row"><div class="form-group"><label>模块</label><select id="exercise-module"><option value="">自动识别</option></select></div><div class="form-group"><label>日期</label><input type="date" id="exercise-date"></div></div>
+            <div class="form-row"><div class="form-group"><label>做题总数</label><input type="number" id="exercise-total" placeholder="e.g. 40" min="1"></div><div class="form-group"><label>正确数</label><input type="number" id="exercise-correct" placeholder="e.g. 30" min="0"></div></div>
+            <div class="form-group"><label>总用时（分钟）</label><input type="number" id="exercise-time" placeholder="e.g. 35" min="1"></div>
+            <div class="form-group" id="exercise-wrong-tags-group" style="display:none;">
+                <label>错题标签（可多选）</label>
+                <div id="exercise-wrong-tags" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+            </div>
+            <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+                <button class="btn btn-outline btn-sm" onclick="closeExerciseModal()">跳过</button>
+                <button class="btn btn-primary btn-sm" onclick="saveExerciseRecord()">💾 保存</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- ═══ 按依赖顺序加载脚本（传统 script 标签，所有函数挂全局作用域，内联 onclick 零改动） ═══ -->
+    <script src="./modules/config.js"></script>
+    <script src="./modules/state.js"></script>
+    <script src="./modules/theme.js"></script>
+    <script src="./modules/utils.js"></script>
+    <script src="./modules/data.js"></script>
+    <script src="./modules/nav.js"></script>
+    <script src="./modules/planner.js"></script>
+    <script src="./modules/dragSort.js"></script>
+    <script src="./modules/today.js"></script>
+    <script src="./modules/pomodoro.js"></script>
+    <script src="./modules/taskModal.js"></script>
+    <script src="./modules/countdown.js"></script>
+    <script src="./modules/analytics.js"></script>
+    <script src="./modules/ai.js"></script>
+    <script src="./modules/settings.js"></script>
+    <script src="./modules/io.js"></script>
+    <script src="./modules/exercise.js"></script>
+    <script src="./modules/init.js"></script>
+</body>
+
+</html>

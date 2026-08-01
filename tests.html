@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>学习计划助手 · 单元测试</title>
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box;}
+        body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro','PingFang SC',sans-serif;background:#f5f5f7;color:#1d1d1f;padding:40px;max-width:900px;margin:0 auto;}
+        h1{font-size:28px;font-weight:700;margin-bottom:8px;}
+        .sub{font-size:13px;color:#86868b;margin-bottom:24px;}
+        .suite{margin-bottom:32px;}
+        .suite h2{font-size:16px;font-weight:700;margin-bottom:12px;padding:8px 0;border-bottom:2px solid #e5e5ea;}
+        .case{font-size:13px;padding:6px 12px;margin:2px 0;border-radius:6px;font-family:'SF Mono',Menlo,Consolas,monospace;}
+        .case.pass{background:#e8f8e8;color:#1d8c1d;}
+        .case.fail{background:#ffe8e8;color:#c41e1e;}
+        .summary{font-size:14px;font-weight:600;margin-top:16px;padding:14px 20px;border-radius:12px;}
+        .summary.all-pass{background:#e8f8e8;color:#1d8c1d;}
+        .summary.has-fail{background:#ffe8e8;color:#c41e1e;}
+    </style>
+</head>
+<body>
+    <h1>🔬 学习计划助手 单元测试</h1>
+    <div class="sub">双击 tests.html 在浏览器中跑，全部用例绿色 = 通过。</div>
+    <div id="results"></div>
+
+    <!-- 加载被测模块（需先加载依赖） -->
+    <script src="./modules/config.js"></script>
+    <script src="./modules/state.js"></script>
+    <script src="./modules/utils.js"></script>
+
+    <script>
+        // ═══ 极简断言库 ═══
+        const results = [];
+        let suiteName = '';
+
+        function describe(name, fn) { suiteName = name; fn(); }
+        function assert(cond, msg) {
+            results.push({ suite: suiteName, msg, pass: !!cond });
+        }
+        function assertEq(actual, expected, msg) {
+            const pass = actual === expected;
+            results.push({ suite: suiteName, msg: msg + ` → 期望 ${JSON.stringify(expected)}，实际 ${JSON.stringify(actual)}`, pass });
+        }
+        function assertApprox(actual, expected, tolerance, msg) {
+            const pass = Math.abs(actual - expected) <= tolerance;
+            results.push({ suite: suiteName, msg: msg + ` → 期望 ≈${expected}±${tolerance}，实际 ${actual}`, pass });
+        }
+
+        function render() {
+            const el = document.getElementById('results');
+            const bySuite = {};
+            results.forEach(r => {
+                if (!bySuite[r.suite]) bySuite[r.suite] = [];
+                bySuite[r.suite].push(r);
+            });
+            let html = '';
+            for (const [suite, cases] of Object.entries(bySuite)) {
+                html += `<div class="suite"><h2>${suite}（${cases.length} 条）</h2>`;
+                cases.forEach(c => {
+                    html += `<div class="case ${c.pass?'pass':'fail'}">${c.pass?'✅':'❌'} ${c.msg}</div>`;
+                });
+                html += '</div>';
+            }
+            const total = results.length;
+            const failed = results.filter(r => !r.pass).length;
+            const allPass = failed === 0;
+            html += `<div class="summary ${allPass?'all-pass':'has-fail'}">${allPass?'🎉 全部通过':'⚠️ 失败'}: ${total} 条用例，${failed} 条失败</div>`;
+            el.innerHTML = html;
+        }
+
+        // ═══ 用例开始 ═══
+
+        // ── 时间 mock：设 _now 为指定日期（10:00，避开 4am 跨日） ──
+        function setNow(isoStr) { window._now = isoStr; }
+        function clearNow() { window._now = undefined; }
+
+        // ── formatTime ──
+        describe('formatTime', () => {
+            assertEq(formatTime(0), '0分', '0分钟 -> "0分"');
+            assertEq(formatTime(30), '30分', '30分钟 -> "30分"');
+            assertEq(formatTime(60), '1时', '60分钟 -> "1时"');
+            assertEq(formatTime(90), '1时30分', '90分钟 -> "1时30分"');
+            assertEq(formatTime(125), '2时5分', '125分钟 -> "2时5分"');
+            assertEq(formatTime(180), '3时', '180分钟 -> "3时"');
+            assertEq(formatTime(undefined), '0分', 'undefined -> "0分"');
+            assertEq(formatTime(null), '0分', 'null -> "0分"');
+        });
+
+        // ── daysBetween ──
+        describe('daysBetween', () => {
+            assertEq(daysBetween('2026-06-01', '2026-06-01'), 1, '同日 → 1');
+            assertEq(daysBetween('2026-06-01', '2026-06-03'), 3, '跨 2 天 → 3');
+            assertEq(daysBetween('2026-06-01', '2026-07-01'), 31, '跨月 6.1→7.1 → 31');
+            assertEq(daysBetween('2028-02-28', '2028-03-01'), 3, '闰年 2.28→3.1 → 3');
+        });
+
+        // ── today() 含 4am 跨日测试 ──
+        describe('today()', () => {
+            clearNow();
+            setNow('2026-06-23T10:00:00');
+            assertEq(today(), '2026-06-23', '6月23日 10:00 → 6月23日');
+            setNow('2026-06-23T03:30:00');
+            assertEq(today(), '2026-06-22', '6月23日 3:30 → 跨日前一天（6月22日）');
+            setNow('2026-06-23T04:00:00');
+            assertEq(today(), '2026-06-23', '6月23日 4:00 → 刚好跨日后是当天');
+            setNow('2026-01-01T02:00:00');
+            assertEq(today(), '2025-12-31', '元旦凌晨 2:00 → 前一年最后一天');
+            clearNow();
+        });
+
+        // ── calcKPI ──
+        describe('calcKPI', () => {
+            setNow('2026-06-15T10:00:00');
+
+            // 早返回：缺字段
+            const kEmpty = calcKPI({ start:'', end:'', total:0 });
+            assertEq(kEmpty.sched, 0, '缺字段 → sched=0');
+            assertEq(kEmpty.actual, 0, '缺字段 → actual=0');
+            assertEq(kEmpty.gap, 0, '缺字段 → gap=0');
+            assertEq(kEmpty.daily, 0, '缺字段 → daily=0');
+            assertEq(kEmpty.catchUp, 0, '缺字段 → catchUp=0');
+            assertEq(kEmpty.totalDays, 1, '缺字段 → totalDays=1（兜底）');
+            assertEq(kEmpty.elapsed, 0, '缺字段 → elapsed=0');
+            assertEq(kEmpty.remainDays, 1, '缺字段 → remainDays=1');
+
+            // 正常任务：6.1-6.30，总额100，已完成40，today=6.15
+            const k = calcKPI({ start:'2026-06-01', end:'2026-06-30', total:100, done:40 });
+            assertEq(k.totalDays, 30, '6.1-6.30 共 30 天');
+            assertEq(k.elapsed, 15, '6.15 已过 15 天');
+            assertApprox(k.sched, 0.5, 0.001, '序时进度 15/30=0.5');
+            assertApprox(k.actual, 0.4, 0.001, '实际进度 40/100=0.4');
+            assertApprox(k.gap, -0.1, 0.001, 'gap = 0.4-0.5 = -0.1（滞后）');
+            assert(k.gap < 0, '实际<序时，gap 为负');
+            assert(k.catchUp > 0, '滞后时 catchUp > 0');
+            assertApprox(k.catchUp, 10, 0.5, 'catchUp≈|-0.1|×100=10');
+            assertApprox(k.daily, 60/16, 0.01, '每天还需 (100-40)/16');
+
+            // 超前任务
+            const ka = calcKPI({ start:'2026-06-01', end:'2026-06-30', total:100, done:70 });
+            assert(ka.gap > 0, '超前时 gap>0');
+            assertEq(ka.catchUp, 0, '超前时 catchUp=0');
+
+            // 已完成任务
+            const kd = calcKPI({ start:'2026-06-01', end:'2026-06-30', total:100, done:100 });
+            assertEq(kd.daily, 0, '已完成 → daily=0');
+
+            // 未开始任务（today < start）
+            const kf = calcKPI({ start:'2026-07-01', end:'2026-07-31', total:200, done:0 });
+            assertEq(kf.elapsed, 0, '未开始 → elapsed=0');
+            assertEq(kf.sched, 0, '未开始 → sched=0');
+
+            // 已过截止日（today > end）
+            setNow('2026-07-15T10:00:00');
+            const ko = calcKPI({ start:'2026-06-01', end:'2026-07-10', total:100, done:50 });
+            assertEq(ko.elapsed, ko.totalDays, '已过截止日 → elapsed=totalDays');
+            assertEq(ko.remainDays, 1, '已过截止日 → remainDays=1（兜底）');
+
+            clearNow();
+        });
+
+        // ── getPomoMinutes ──
+        describe('getPomoMinutes', () => {
+            data.pomodoroSessions = [
+                { taskId:'t1', minutes:30, date:'2026-06-15' },
+                { taskId:'t1', minutes:45, date:'2026-06-15' },
+                { taskId:'t2', minutes:60, date:'2026-06-16' },
+            ];
+            assertEq(getPomoMinutes('t1'), 75, 't1 两个 session 30+45=75');
+            assertEq(getPomoMinutes('t2'), 60, 't2 一个 session 60');
+            assertEq(getPomoMinutes('t3'), 0, '不存在的 taskId → 0');
+            data.pomodoroSessions = [];
+        });
+
+        // ── getUnitCost（第3步新增） ──
+        describe('getUnitCost', () => {
+            // 纯派生：有 doneDelta 的 session
+            data.pomodoroSessions = [
+                { taskId:'u1', minutes:60, date:'2026-06-01', doneDelta:10 },  // 10个单位花了60分钟
+                { taskId:'u1', minutes:30, date:'2026-06-02', doneDelta:5 },   // 5个单位花了30分钟
+                { taskId:'u1', minutes:20, date:'2026-06-03', doneDelta:0 },   // 没完成单位，应被过滤
+            ];
+            assertEq(getUnitCost('u1'), 6, '60+30=90分钟 → 10+5=15单位 → 6分/单位');
+            assertEq(getUnitCost('u2'), null, '无数据 → null（显示—）');
+
+            // 兜底：旧数据无 doneDelta，回退 pomoProductive/pomoUnits
+            data.pomodoroSessions = [
+                { taskId:'old1', minutes:120, date:'2026-01-01', doneDelta:0 },
+            ];
+            data.tasks = [{ id:'old1', pomoProductive:200, pomoUnits:50 }];
+            assertEq(getUnitCost('old1'), 4, '旧数据兜底：200/50=4分/单位');
+
+            // 清理
+            data.pomodoroSessions = [];
+            data.tasks = [];
+        });
+
+        // ── 静默函数：不应抛异常 ──
+        describe('calcStreak（仅检查不抛异常）', () => {
+            data.checkins = { '2026-06-15': { minutes: 30 }, '2026-06-16': { minutes: 60 } };
+            let ok = false;
+            try { calcStreak(); ok = true; } catch(e) {}
+            assert(ok, 'calcStreak 不抛异常');
+            data.checkins = {};
+        });
+
+        // ── 渲染输出 ──
+        render();
+        console.log('✅ 测试全部运行完成，请在页面查看结果');
+    </script>
+</body>
+</html>
