@@ -15,16 +15,24 @@ function applyTheme(t) {
 function toggleTheme() {
     const cur = document.documentElement.getAttribute('data-theme') || 'light';
     applyTheme(cur === 'dark' ? 'light' : 'dark');
-    // Re-render charts if analytics is visible
+    refreshThemePages();
+}
+// 主题切换后重渲染当前可见页面（getDisplayColor 深色映射生效）
+function refreshThemePages() {
+    if (document.getElementById('page-planner').classList.contains('active')) renderPlanner();
+    if (document.getElementById('page-today').classList.contains('active')) renderToday();
     if (document.getElementById('page-analytics').classList.contains('active')) renderAnalytics();
 }
 // Listen for system theme changes (only when user hasn't set a preference)
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
-    if (!localStorage.getItem('flow_theme')) applyTheme(e.matches ? 'dark' : 'light');
+    if (!localStorage.getItem('flow_theme')) {
+        applyTheme(e.matches ? 'dark' : 'light');
+        refreshThemePages();
+    }
 });
 function getTaskColor(idx) {
-    const colors = (document.documentElement.getAttribute('data-theme') === 'dark') ? TASK_COLORS_DARK : TASK_COLORS;
-    return colors[idx % colors.length];
+    // 始终返回浅色基准色（存储标准值），显示时由 getDisplayColor 做深色映射
+    return TASK_COLORS[idx % TASK_COLORS.length];
 }
 function getCSSVar(name) {
     return getComputedStyle(document.documentElement).getPropertyValue(name).trim();

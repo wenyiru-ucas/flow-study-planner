@@ -11,6 +11,7 @@ document.querySelectorAll('.nav-item').forEach(btn => {
         document.getElementById('page-' + p).classList.add('active');
         if (p === 'planner') renderPlanner();
         if (p === 'today') renderToday();
+        if (p === 'exam') renderExam();
         if (p === 'analytics') renderAnalytics();
         if (p === 'countdown') renderCountdown();
         if (p === 'settings') loadSettings();

@@ -45,20 +45,37 @@ const doughnutLabelPlugin = {
     }
 };
 
+// 统计周期起止（日期字符串 YYYY-MM-DD）：week=近7天 / month=近30天 / year=近365天
+function getPeriodRange() {
+    const end = today();
+    const d = new Date();
+    const days = analyticsPeriod === 'week' ? 6 : analyticsPeriod === 'month' ? 29 : 364;
+    d.setDate(d.getDate() - days);
+    return { start: d.toISOString().slice(0, 10), end };
+}
+
+// 周期内某任务的番茄钟分钟数
+function getPomoMinutesInRange(taskId, start, end) {
+    return (data.pomodoroSessions || [])
+        .filter(s => s.taskId === taskId && s.date >= start && s.date <= end)
+        .reduce((sum, s) => sum + (s.minutes || 0), 0);
+}
+
 function renderAnalytics() {
-    // 统计全部任务（含已完成/暂停），只要有过番茄钟记录就出现
-    const all = data.tasks.filter(t => getPomoMinutes(t.id) > 0);
+    // 图表表头标注当前统计周期（本周/本月/本年）
+    updateChartPeriodLabels();
+    // 当前统计周期范围
+    const range = getPeriodRange();
+    // 统计周期内有番茄钟记录的任务
+    const all = data.tasks.filter(t => getPomoMinutesInRange(t.id, range.start, range.end) > 0);
     const chartText = getCSSVar('--chart-text');
     const chartGrid = getCSSVar('--chart-grid');
     const chartBorder = getCSSVar('--chart-border');
     const chartFillSched = getCSSVar('--chart-fill-sched');
     const accent = getCSSVar('--accent');
-    const tagColors = (document.documentElement.getAttribute('data-theme') === 'dark')
-        ? ['#5db8fe','#c792fc','#f5c842','#5ce694','#ff6b80','#6ecdfa']
-        : ['#0071e3','#af52de','#ff9500','#34c759','#ff2d55','#5ac8fa'];
 
     destroyChart('subject');
-    const subjectData = all.map(t => Math.max(0, getPomoMinutes(t.id)));
+    const subjectData = all.map(t => Math.max(0, getPomoMinutesInRange(t.id, range.start, range.end)));
     const hasSubjectData = subjectData.reduce((s, v) => s + v, 0) > 0;
     charts.subject = new Chart(document.getElementById('chart-subject').getContext('2d'), {
         type: 'doughnut',
@@ -66,7 +83,7 @@ function renderAnalytics() {
             labels: all.map(t => t.name),
             datasets: [{
                 data: subjectData,
-                backgroundColor: all.map(t => t.color),
+                backgroundColor: all.map(t => getDisplayColor(t.color)),
                 borderColor: chartBorder,
                 borderWidth: 2
             }]
@@ -142,20 +159,25 @@ function renderAnalytics() {
         }
     });
 
-    // Tag distribution
+    // Tag distribution（按统计周期过滤）
     destroyChart('tags');
     const tagMap = {};
     data.tasks.filter(t => t.type !== 'rest').forEach(t => {
         const tags = (t.tags || '').split(/[,，]/).map(s => s.trim()).filter(Boolean);
         if (tags.length === 0) tags.push('未分类');
-        const mins = getPomoMinutes(t.id);
+        const mins = getPomoMinutesInRange(t.id, range.start, range.end);
         tags.forEach(tag => { tagMap[tag] = (tagMap[tag] || 0) + mins; });
     });
     charts.tags = new Chart(document.getElementById('chart-tags').getContext('2d'), {
         type: 'bar',
         data: {
             labels: Object.keys(tagMap),
-            datasets: [{ data: Object.values(tagMap), backgroundColor: tagColors, borderRadius: 6, barThickness: 24 }]
+            datasets: [{
+                data: Object.values(tagMap),
+                backgroundColor: Object.keys(tagMap).map(tag => getDisplayColor(getTagColor(tag))),
+                borderRadius: 6,
+                barThickness: 24
+            }]
         },
         options: {
             responsive: true,
@@ -164,6 +186,17 @@ function renderAnalytics() {
         }
     });
     renderExerciseCharts();
+}
+
+// 给所有图表卡片标题追加统计周期标注（本周/本月/本年）
+function updateChartPeriodLabels() {
+    const label = analyticsPeriod === 'week' ? '本周' : analyticsPeriod === 'month' ? '本月' : '本年';
+    document.querySelectorAll('.chart-card h3').forEach(h3 => {
+        if (!h3.dataset.base) {
+            h3.dataset.base = h3.textContent.replace(/\s*[（(](本周|本月|本年|近7天)[）)]\s*$/, '').trim();
+        }
+        h3.textContent = `${h3.dataset.base}（${label}）`;
+    });
 }
 
 

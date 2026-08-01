@@ -59,7 +59,7 @@ function renderToday() {
         const btnDisabled = isDone || exceeded;
         const hasExercise = getExerciseModule(t);
         return `<div class="today-task-card" style="${cardStyle}" onclick="${btnDisabled ? '' : `quickEdit('${t.id}')`}">
-      <div class="tt-color" style="background:${t.color}"></div>
+      <div class="tt-color" style="background:${getDisplayColor(t.color)}"></div>
       <div class="tt-info">
         <div class="tt-name">${btnDisabled ? '' : `<button class="btn btn-primary btn-sm" style="margin-right:6px;padding:4px 10px;font-size:12px;" onclick="event.stopPropagation();startPomo('${t.id}','${t.name.replace(/'/g,"\\\\'")}')">🍅</button>`}${hasExercise ? `<button class="btn btn-ghost btn-sm" style="margin-right:6px;padding:4px 8px;font-size:11px;" onclick="event.stopPropagation();openExerciseModal('${t.id}','${t.name.replace(/'/g,"\\\\'")}')" title="录入做题记录">📝</button>` : ''}${t.name}${isDone ? ' <span style="font-size:11px;color:var(--green);">✓</span>' : ''}${exceeded ? ' <span style="font-size:11px;color:var(--orange);">🔥</span>' : ''}${isOverdue ? ' <span style="font-size:11px;color:var(--red);">⚠ 已逾期</span>' : ''}${isUpcoming ? ' <span style="font-size:11px;color:var(--accent);">📅 即将开始</span>' : ''}</div>
         <div class="tt-meta">已完成 ${t.done}/${t.total} · 进度 ${pct}% · 🍅 ${formatTime(getPomoMinutes(t.id))}</div>

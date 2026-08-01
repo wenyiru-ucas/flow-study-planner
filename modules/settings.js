@@ -22,6 +22,46 @@ function loadSettings() {
     renderPomoSessions();
     // 【第2步】渲染备份卡片统计
     renderBackupStats();
+    // 标签颜色设置
+    renderTagColorSettings();
+}
+
+// 渲染标签颜色配置列表（设置页）
+function renderTagColorSettings() {
+    const grid = document.getElementById('tag-color-grid');
+    if (!grid) return;
+    const cfg = (data.settings.tagColors) || {};
+    const tags = Object.keys(cfg);
+    if (!tags.length) {
+        grid.innerHTML = '<span style="color:var(--text3);">暂无标签 — 创建带标签的任务后自动出现</span>';
+        return;
+    }
+    grid.innerHTML = tags.map(tag => `
+        <div style="display:flex;align-items:center;gap:8px;padding:7px 2px;border-bottom:1px solid var(--border-subtle);">
+            <span style="flex:1;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${String(tag).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;')}</span>
+            ${TASK_COLORS.map(c => `<span onclick="setTagColor('${String(tag).replace(/'/g,"\\'")}','${c}')" style="background:${c};width:22px;height:22px;border-radius:50%;cursor:pointer;border:2px solid ${cfg[tag]===c?'var(--text)':'transparent'};display:inline-block;transition:transform 0.15s;" title="设为该色"></span>`).join('')}
+        </div>`).join('');
+}
+
+// 修改标签颜色：立即保存 + 同步任务颜色 + 重渲染相关页面
+function setTagColor(tag, color) {
+    if (!data.settings.tagColors) data.settings.tagColors = {};
+    data.settings.tagColors[tag] = color;
+    saveData();
+    // 同步所有含该标签的任务颜色
+    let changed = false;
+    data.tasks.forEach(t => {
+        if ((t.tags || '').includes(tag)) {
+            const target = taskColorFor(t);
+            if (t.color !== target) { t.color = target; changed = true; }
+        }
+    });
+    if (changed) saveData();
+    renderTagColorSettings();
+    renderPlanner();
+    renderToday();
+    if (document.getElementById('page-analytics').classList.contains('active')) renderAnalytics();
+    showToast(`🎨 「${tag}」颜色已更新`);
 }
 
 function renderPomoSessions() {

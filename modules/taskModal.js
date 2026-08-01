@@ -18,10 +18,10 @@ function showTaskModal(task = null) {
     document.getElementById('task-note').value = task ? task.note : '';
     document.getElementById('task-tags').value = task ? (task.tags || '') : '';
     document.getElementById('task-delete-btn').style.display = task ? 'inline-flex' : 'none';
-    // Color picker
-    const selColor = task ? task.color : getTaskColor(Math.floor(Math.random() * 10));
+    // Color picker（始终显示基准色，存储统一用基准色；显示时由 getDisplayColor 做深色映射）
+    const selColor = task ? task.color : getTaskColor(Math.floor(Math.random() * TASK_COLORS.length));
     document.getElementById('task-color').value = selColor;
-    const pickerColors = (document.documentElement.getAttribute('data-theme') === 'dark') ? TASK_COLORS_DARK : TASK_COLORS;
+    const pickerColors = TASK_COLORS;
     document.getElementById('color-picker').innerHTML = pickerColors.map(c =>
         `<span style="background:${c};width:26px;height:26px;border-radius:50%;cursor:pointer;border:2px solid ${c===selColor?'var(--text)':'transparent'};transition:all 0.2s;display:inline-block;" onclick="pickColor('${c}',this)"></span>`
     ).join('');
@@ -62,7 +62,7 @@ function saveTask() {
         pomoUnits: existing ? (existing.pomoUnits || 0) : 0,
         pomoProductive: existing ? (existing.pomoProductive || 0) : 0,
         sortOrder: existing ? (existing.sortOrder || 0) : 0,
-        color: document.getElementById('task-color').value || (existing ? existing.color : getTaskColor(Math.floor(Math.random() * 10))),
+        color: document.getElementById('task-color').value || (existing ? existing.color : getTaskColor(Math.floor(Math.random() * TASK_COLORS.length))),
         completedDate: (document.getElementById('task-status').value === 'done') ? (existing?.completedDate || today()) : '',
     };
     if (!td.name) { showToast('请输入项目名称'); return; }

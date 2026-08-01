@@ -298,9 +298,11 @@ body {
 
 /* Pomodoro */
 .pomo-overlay { position: fixed; inset: 0; background: var(--pomo-overlay-bg); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); display: flex; align-items: center; justify-content: center; z-index: 200; animation: scaleIn 0.35s var(--spring-slow); }
-.pomo-card { background: var(--elevated); backdrop-filter: blur(40px); -webkit-backdrop-filter: blur(40px); border-radius: 32px; padding: 48px 40px; text-align: center; width: 440px; box-shadow: var(--pomo-shadow); border: 1px solid var(--border-glass-strong); }
-.pomo-card .pomo-phase { font-size: 13px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 8px; }
-.pomo-card .pomo-task { font-size: 18px; font-weight: 700; margin-bottom: 24px; }
+.pomo-card { background: var(--elevated); backdrop-filter: blur(40px); -webkit-backdrop-filter: blur(40px); border-radius: 32px; padding: 40px 32px; width: 780px; box-shadow: var(--pomo-shadow); border: 1px solid var(--border-glass-strong); display: flex; gap: 28px; align-items: stretch; max-height: 88vh; }
+.pomo-main { flex: 0 0 400px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; }
+.pomo-main .pomo-phase { font-size: 13px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 8px; }
+.pomo-main .pomo-task { font-size: 18px; font-weight: 700; margin-bottom: 20px; }
+.pomo-side { flex: 1; min-width: 0; display: flex; flex-direction: column; border-left: 1px dashed var(--border-glass-strong); padding-left: 24px; }
 .pomo-ring-wrap { position: relative; width: 220px; height: 220px; margin: 0 auto 24px; }
 .pomo-ring-wrap svg { transform: rotate(-90deg); width: 220px; height: 220px; }
 .pomo-ring-wrap .ring-bg { fill: none; stroke: var(--pomo-ring-bg); stroke-width: 8; }
@@ -309,6 +311,136 @@ body {
 .pomo-timer-display { font-size: 64px; font-weight: 200; letter-spacing: -.04em; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); font-family: 'SF Mono','Menlo','Consolas',monospace; font-variant-numeric: tabular-nums; }
 .pomo-timer-display.break-time { color: var(--green); }
 .pomo-actions { display: flex; gap: 12px; justify-content: center; }
+
+/* ⏱ 秒表（分段计时）— 位于番茄钟右侧栏 */
+.stopwatch-toggle { display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; padding: 4px 2px; }
+.stopwatch-toggle .sw-toggle-title { font-size: 14px; font-weight: 700; color: var(--text); }
+.stopwatch-toggle .sw-toggle-title em { font-style: normal; font-weight: 500; font-size: 11px; color: var(--accent); margin-left: 6px; }
+.stopwatch-toggle .sw-arrow { font-size: 11px; color: var(--text3); transition: transform 0.2s var(--ease-out); }
+.stopwatch-body { flex: 1; display: flex; flex-direction: column; min-height: 0; margin-top: 14px; }
+.sw-name-row { flex: 0 0 auto; }
+.sw-name-row input { width: 100%; padding: 8px 12px; border-radius: 10px; border: 1px solid var(--border-glass-strong); background: var(--surface); color: var(--text); font-size: 13px; box-sizing: border-box; }
+.sw-name-row input:focus { outline: none; border-color: var(--accent); }
+.sw-time-row { display: flex; gap: 24px; justify-content: center; margin: 14px 0 12px; flex: 0 0 auto; }
+.sw-time-cell { text-align: center; }
+.sw-label { font-size: 11px; color: var(--text3); margin-bottom: 4px; }
+.sw-total, .sw-cur { font-family: 'SF Mono', Menlo, monospace; font-size: 21px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sw-total { color: var(--text); }
+.sw-cur { color: var(--accent); }
+.sw-btn-row { display: flex; gap: 10px; justify-content: center; flex: 0 0 auto; }
+.sw-lap-list { flex: 1 1 0; min-height: 0; overflow-y: auto; margin-top: 12px; border-top: 1px solid var(--border-glass); padding-top: 8px; }
+.sw-empty { font-size: 12px; color: var(--text3); text-align: center; padding: 6px 0; }
+.sw-lap-row { display: flex; align-items: center; gap: 10px; padding: 5px 4px; border-bottom: 1px solid var(--border-glass); font-size: 13px; }
+.sw-lap-idx { color: var(--text3); font-family: 'SF Mono', Menlo, monospace; font-size: 12px; width: 24px; flex: 0 0 auto; }
+.sw-lap-name { flex: 1; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sw-lap-time { font-family: 'SF Mono', Menlo, monospace; font-weight: 600; color: var(--text2); font-variant-numeric: tabular-nums; white-space: nowrap; flex: 0 0 auto; }
+
+/* 🏫 考场模拟 */
+.exam-clock-card {
+    background: #101418;
+    border-radius: 24px;
+    padding: 44px 40px 36px;
+    text-align: center;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: var(--shadow-lg);
+    margin-top: 8px;
+}
+.exam-clock {
+    font-family: 'SF Mono', Menlo, monospace;
+    font-size: 82px;
+    font-weight: 700;
+    color: #ff453a;
+    text-shadow: 0 0 26px rgba(255, 69, 58, 0.45);
+    letter-spacing: 4px;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+    margin-bottom: 28px;
+}
+.exam-clock.exam-timeout { animation: examBlink 0.7s steps(2) infinite; }
+@keyframes examBlink { 0% { opacity: 1; } 100% { opacity: 0.2; } }
+
+/* ⏱ 考场模块计时 */
+.exam-stopwatch-card {
+    background: var(--surface);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: var(--radius-lg);
+    padding: 22px 24px;
+    border: 1px solid var(--border-glass);
+    box-shadow: var(--shadow-sm);
+    margin-top: 20px;
+}
+.ex-sw-layout { display: flex; gap: 28px; align-items: stretch; }
+.ex-sw-left { flex: 0 0 340px; display: flex; flex-direction: column; }
+.ex-sw-right { flex: 1; min-width: 0; display: flex; flex-direction: column; border-left: 1px dashed var(--border-glass-strong); padding-left: 24px; }
+.ex-sw-modules { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ex-sw-module { border: 1px solid var(--border-outline) !important; }
+.ex-sw-module.active {
+    background: var(--accent) !important;
+    color: #fff !important;
+    border-color: var(--accent) !important;
+    box-shadow: var(--btn-primary-shadow);
+}
+.ex-sw-right .sw-lap-list { flex: 1 1 0; min-height: 0; }
+.ex-sw-left .sw-time-row { margin-top: 16px; }
+.ex-sw-left .sw-btn-row { margin-top: 4px; }
+
+/* ⏰ 到时提醒横幅 */
+.exam-timeup-banner {
+    background: rgba(255, 69, 58, 0.14);
+    border: 1px solid rgba(255, 69, 58, 0.5);
+    color: #ff453a;
+    font-size: 16px;
+    font-weight: 700;
+    padding: 10px 16px;
+    border-radius: 14px;
+    margin-bottom: 18px;
+    animation: examBlink 0.7s steps(2) infinite;
+}
+
+/* 📚 历史记录 */
+.exam-history-card {
+    background: var(--surface);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: var(--radius-lg);
+    padding: 22px 24px;
+    border: 1px solid var(--border-glass);
+    box-shadow: var(--shadow-sm);
+    margin-top: 20px;
+}
+.eh-row { padding: 12px 4px; border-bottom: 1px solid var(--border-glass); }
+.eh-row:last-child { border-bottom: none; }
+.eh-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.eh-mods { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.eh-mod {
+    font-size: 12px;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-variant-numeric: tabular-nums;
+}
+.eh-edit {
+    margin-top: 10px;
+    padding: 12px 14px;
+    background: var(--fill-subtle);
+    border-radius: 12px;
+    border: 1px solid var(--border-glass);
+}
+.eh-edit-title { font-size: 12px; font-weight: 600; color: var(--text2); margin-bottom: 8px; }
+.eh-edit-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.eh-edit-name { width: 110px; font-size: 13px; color: var(--text); }
+.eh-edit-row input {
+    padding: 5px 8px;
+    border-radius: 8px;
+    border: 1px solid var(--border-outline);
+    background: var(--input-bg);
+    color: var(--text);
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+    text-align: center;
+}
+.eh-edit-row input:focus { border-color: var(--accent); }
 
 /* Post-pomo progress input */
 .pomo-post-input { margin-top: 20px; animation: slideUp 0.4s var(--spring-slow); }

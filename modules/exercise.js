@@ -114,53 +114,73 @@ function renderWrongBook() {
     }).join('');
 }
 
+// 秒 → "X分X秒"（<60秒显示"X秒"）
+function formatMinSec(sec) {
+    sec = Math.max(0, Math.round(sec));
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    if (m > 0) return `${m}分${s}秒`;
+    return `${s}秒`;
+}
+
 function renderExerciseCharts() {
-    const records = data.exerciseRecords;
+    // ── 数据源：考场模拟记录（examRecords）— 已切断与做题记录 exerciseRecords 的联动 ──
+    // 按当前统计周期过滤（本周/本月/本年）
+    const range = getPeriodRange();
+    const records = (data.examRecords || []).filter(r => r.date >= range.start && r.date <= range.end);
     const chartText = getCSSVar('--chart-text');
     const chartGrid = getCSSVar('--chart-grid');
     const accent = getCSSVar('--accent');
     const red = getCSSVar('--red');
     const modColors = ['#5db8fe','#c792fc','#f5c842','#5ce694','#ff6b80'];
-    const modColorsDark = ['#5db8fe','#c792fc','#f5c842','#5ce694','#ff6b80'];
-    const modCols = (document.documentElement.getAttribute('data-theme') === 'dark') ? modColorsDark : ['#0071e3','#af52de','#ff9500','#34c759','#ff2d55'];
+    const modCols = (document.documentElement.getAttribute('data-theme') === 'dark') ? modColors : ['#0071e3','#af52de','#ff9500','#34c759','#ff2d55'];
 
-    // Aggregate by module
-    const modStats = {};
-    EXERCISE_MODULES.forEach(m => { modStats[m] = { total: 0, correct: 0, time: 0, questions: 0 }; });
+    // 聚合：每模块 总用时(timeMs) / 总题数(total) / 答对(correct)
+    const modStats = {};   // name -> { total, correct, timeMs }
     records.forEach(r => {
-        if (modStats[r.module]) {
-            modStats[r.module].total += r.totalQuestions;
-            modStats[r.module].correct += r.correctQuestions;
-            modStats[r.module].time += r.timeMinutes;
-            modStats[r.module].questions += r.totalQuestions;
-        }
+        const timeMap = {};
+        (r.laps || []).forEach(l => { timeMap[l.name] = (timeMap[l.name] || 0) + l.ms; });
+        const scores = r.modScores || {};
+        const names = new Set([...Object.keys(timeMap), ...Object.keys(scores)]);
+        names.forEach(n => {
+            if (!modStats[n]) modStats[n] = { total: 0, correct: 0, timeMs: 0 };
+            modStats[n].timeMs += timeMap[n] || 0;
+            const sc = scores[n];
+            if (sc && sc.q > 0) { modStats[n].total += sc.q; modStats[n].correct += sc.c; }
+        });
     });
-    const mods = EXERCISE_MODULES.filter(m => modStats[m].total > 0);
+    // 按考场模块顺序排序（未在预设列表的模块排最后）
+    const sortMods = list => list.sort((a, b) => {
+        const ia = examModules.indexOf(a), ib = examModules.indexOf(b);
+        return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+    });
+    const modsAcc = sortMods(Object.keys(modStats).filter(m => modStats[m].total > 0));
+    const modsSpeed = sortMods(Object.keys(modStats).filter(m => modStats[m].total > 0));
 
-    // Accuracy horizontal bar chart
+    // Accuracy horizontal bar chart（正确率 = 答对/题数）
     destroyChart('exercise-accuracy');
-    if (mods.length) {
+    if (modsAcc.length) {
         const ctx1 = document.getElementById('chart-exercise-accuracy').getContext('2d');
         charts['exercise-accuracy'] = new Chart(ctx1, {
             type: 'bar',
             data: {
-                labels: mods,
+                labels: modsAcc,
                 datasets: [{
-                    label: '正确率 %', data: mods.map(m => modStats[m].total > 0 ? +(modStats[m].correct / modStats[m].total * 100).toFixed(1) : 0),
-                    backgroundColor: mods.map((_, i) => modCols[i % modCols.length]), borderRadius: 6
+                    label: '正确率 %', data: modsAcc.map(m => +(modStats[m].correct / modStats[m].total * 100).toFixed(1)),
+                    backgroundColor: modsAcc.map((_, i) => modCols[i % modCols.length]), borderRadius: 6
                 }]
             },
             options: {
                 indexAxis: 'y', responsive: true,
                 scales: { x: { max: 100, ticks: { color: chartText }, grid: { color: chartGrid } }, y: { ticks: { color: chartText } } },
-                plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => `正确率: ${ctx.raw}%` } } }
+                plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => `${ctx.label}: 正确率 ${ctx.raw}%` } } }
             }
         });
     }
 
-    // Speed chart with reference lines
+    // Speed chart（平均单题耗时 = 总用时 / 总题数，XX分XX秒/题）+ 参考线
     destroyChart('exercise-speed');
-    if (mods.length) {
+    if (modsSpeed.length) {
         const ctx2 = document.getElementById('chart-exercise-speed').getContext('2d');
         const refTimes = data.settings.exerciseRefTimes || {};
         const refPlugin = {
@@ -168,13 +188,12 @@ function renderExerciseCharts() {
             afterDraw(chart) {
                 const ctx = chart.ctx;
                 const xAxis = chart.scales.x;
-                const yAxis = chart.scales.y;
                 const meta = chart.getDatasetMeta(0);
                 ctx.save();
-                mods.forEach((m, i) => {
+                modsSpeed.forEach((m, i) => {
                     const ref = refTimes[m];
                     if (!ref || !meta.data[i]) return;
-                    const x = xAxis.getPixelForValue(ref);
+                    const x = xAxis.getPixelForValue(ref * 60);   // 分钟 → 秒
                     const bar = meta.data[i];
                     const yMid = (bar.y + bar.base) / 2;
                     ctx.setLineDash([4, 3]);
@@ -187,7 +206,7 @@ function renderExerciseCharts() {
                     ctx.setLineDash([]);
                     ctx.fillStyle = getCSSVar('--red');
                     ctx.font = 'bold 10px -apple-system, sans-serif';
-                    ctx.fillText(ref + '′', x + 4, yMid + 4);
+                    ctx.fillText(formatMinSec(ref * 60), x + 4, yMid + 4);
                 });
                 ctx.restore();
             }
@@ -195,37 +214,51 @@ function renderExerciseCharts() {
         charts['exercise-speed'] = new Chart(ctx2, {
             type: 'bar',
             data: {
-                labels: mods,
+                labels: modsSpeed,
                 datasets: [{
-                    label: '平均单题耗时(分)', data: mods.map(m => modStats[m].questions > 0 ? +(modStats[m].time / modStats[m].questions).toFixed(2) : 0),
-                    backgroundColor: mods.map((_, i) => modCols[i % modCols.length]), borderRadius: 6
+                    label: '平均单题耗时', data: modsSpeed.map(m => +(modStats[m].timeMs / 1000 / modStats[m].total).toFixed(1)),
+                    backgroundColor: modsSpeed.map((_, i) => modCols[i % modCols.length]), borderRadius: 6
                 }]
             },
             options: {
                 indexAxis: 'y', responsive: true,
-                scales: { x: { ticks: { color: chartText }, grid: { color: chartGrid } }, y: { ticks: { color: chartText } } },
+                scales: {
+                    x: { ticks: { color: chartText, callback: v => formatMinSec(v) }, grid: { color: chartGrid } },
+                    y: { ticks: { color: chartText } }
+                },
                 plugins: {
                     legend: { display: false },
-                    tooltip: { callbacks: { label: ctx => `平均: ${ctx.raw}分/题` } }
+                    tooltip: { callbacks: { label: ctx => `平均: ${formatMinSec(ctx.raw)}/题` } }
                 }
             },
             plugins: [refPlugin]
         });
     }
 
-    // Trend line chart by module
+    // Trend line chart（按日期，各模块正确率）
     destroyChart('exercise-trend');
     const dateMap = {};
     records.forEach(r => {
-        if (!dateMap[r.date]) dateMap[r.date] = {};
-        if (!dateMap[r.date][r.module]) dateMap[r.date][r.module] = { total: 0, correct: 0 };
-        dateMap[r.date][r.module].total += r.totalQuestions;
-        dateMap[r.date][r.module].correct += r.correctQuestions;
+        const scores = r.modScores || {};
+        const timeMap = {};
+        (r.laps || []).forEach(l => { timeMap[l.name] = (timeMap[l.name] || 0) + l.ms; });
+        Object.keys(scores).forEach(n => {
+            const sc = scores[n];
+            if (!sc || !sc.q || sc.q <= 0) return;
+            if (!dateMap[r.date]) dateMap[r.date] = {};
+            if (!dateMap[r.date][n]) dateMap[r.date][n] = { total: 0, correct: 0 };
+            dateMap[r.date][n].total += sc.q;
+            dateMap[r.date][n].correct += sc.c;
+        });
     });
     const dates = Object.keys(dateMap).sort();
-    if (dates.length > 0 && mods.length > 0) {
+    const trendMods = sortMods(Object.keys(dateMap).reduce((acc, d) => {
+        Object.keys(dateMap[d]).forEach(m => { if (!acc.includes(m)) acc.push(m); });
+        return acc;
+    }, []));
+    if (dates.length > 0 && trendMods.length > 0) {
         const ctx3 = document.getElementById('chart-exercise-trend').getContext('2d');
-        const datasets = mods.map((m, i) => ({
+        const datasets = trendMods.map((m, i) => ({
             label: m,
             data: dates.map(d => {
                 const st = dateMap[d][m];

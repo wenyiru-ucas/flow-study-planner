@@ -137,7 +137,7 @@ function executeAIActions() {
                         status: 'active',
                         note: '',
                         pomoMinutes: 0,
-                        color: getTaskColor(Math.floor(Math.random() * 10)),
+                        color: getTaskColor(Math.floor(Math.random() * TASK_COLORS.length)),
                         completedDate: ''
                     };
                     data.tasks.push(newT);

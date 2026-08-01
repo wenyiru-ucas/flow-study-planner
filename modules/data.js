@@ -18,7 +18,7 @@ function loadData() {
     data.tasks = (data.tasks || []).map(t => ({ id: t.id || crypto.randomUUID(), name: t.name || '', start: t.start ||
             '', end: t.end || '', total: t.total || 0, done: t.done || 0, days: t.days || 0, type: t.type ||
             'regular', status: t.status || 'active', note: t.note || '', pomoMinutes: t.pomoMinutes || 0, color: t
-            .color || getTaskColor(Math.floor(Math.random() * 10)),
+            .color || getTaskColor(Math.floor(Math.random() * TASK_COLORS.length)),
         completedDate: t.completedDate || '',
         sortOrder: t.sortOrder || 0,
         tags: t.tags || '',

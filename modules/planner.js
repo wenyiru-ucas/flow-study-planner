@@ -95,7 +95,7 @@ function renderPlanner() {
         const ucText = uc ? uc + '分/单位' : '—';
         return `<tr style="${rowStyle2}" draggable="true" data-task-id="${t.id}" onclick="quickEdit('${t.id}')">
       <td><span class="drag-handle" onclick="event.stopPropagation()">⋮⋮</span></td>
-      <td><div class="tp-name"><button class="tp-btn" style="margin-right:4px;" onclick="event.stopPropagation();startPomo('${t.id}','${t.name.replace(/'/g,"\\\\'")}')" title="🍅">🍅</button><span class="tp-dot" style="background:${t.color}"></span>${t.name}</div></td>
+      <td><div class="tp-name"><button class="tp-btn" style="margin-right:4px;" onclick="event.stopPropagation();startPomo('${t.id}','${t.name.replace(/'/g,"\\\\'")}')" title="🍅">🍅</button><span class="tp-dot" style="background:${getDisplayColor(t.color)}"></span>${t.name}</div></td>
       <td class="tp-pomo">${formatTime(getPomoMinutes(t.id))}<span style="font-size:10px;color:var(--text3);display:block;">${ucText}</span></td>
       <td style="font-size:12px;white-space:nowrap;">${dateRange}</td>
       <td class="tp-num">${t.total}</td><td class="tp-num">${t.done}</td>
@@ -226,7 +226,7 @@ function renderPastMonths() {
           <div style="padding:0 20px 16px;">
             ${m.tasks.map(t=>{const k=calcKPI(t);const p=Math.min(100,Math.round(k.actual*100));return`<div style="display:flex;align-items:center;gap:12px;padding:8px 0;font-size:13px;">
               <span style="font-weight:600;flex:1;">${t.name}</span><span style="color:var(--text2);">${t.done}/${t.total}</span>
-              <div style="width:80px;height:4px;background:var(--fill-strong);border-radius:2px;overflow:hidden;"><div style="height:100%;width:${p}%;background:${t.color};border-radius:2px;"></div></div>
+              <div style="width:80px;height:4px;background:var(--fill-strong);border-radius:2px;overflow:hidden;"><div style="height:100%;width:${p}%;background:${getDisplayColor(t.color)};border-radius:2px;"></div></div>
               <span style="width:36px;text-align:right;font-weight:600;">${p}%</span></div>`;}).join('')}
           </div></div></div>`).join('')}`;
     window._pastMonthsData = entries;

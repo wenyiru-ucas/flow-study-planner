@@ -29,6 +29,8 @@ function playBeep() {
 }
 
 function startPomo(taskId, taskName) {
+    // ── 痛点2修复：点击按钮后立即失焦，防止后续空格误触 ──
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
     const task = data.tasks.find(t => t.id === taskId);
     const isCountUp = task && task.timerMode === 'countup';
     const workMin = data.settings.pomoWork || 60;
@@ -95,6 +97,8 @@ function finishPomoSession() {
         if (task) task.pomoMinutes = (task.pomoMinutes || 0) + minutes;
         if (!data.checkins[today()]) { data.checkins[today()] = { minutes, tasks: {} }; } else { data.checkins[today()].minutes = (data.checkins[today()].minutes || 0) + minutes; }
         saveData();
+        // ── 痛点3修复：立即刷新左下角今日时长 ──
+        updateSidebarStats();
         pomoState.savedMinutes = minutes;
         document.getElementById('pomo-phase-label').textContent = '✅ 专注完成！';
         document.getElementById('pomo-timer').textContent = '00:00';
@@ -179,6 +183,8 @@ function submitPomoProgress() {
             if (val > 0) data.dailyDone[td][task.id] = (data.dailyDone[td][task.id] || 0) + val;
         }
         saveData();
+        // ── 痛点3修复：时长修正后刷新左下角今日时长 ──
+        updateSidebarStats();
         if (task && val > 0) showToast(`📝 「${task.name}」+${val}，进度已更新`);
         else if (task) showToast('⏱ 时长已记录，未完成单位');
         // If task has an exercise module tag, offer to record exercise stats
@@ -272,6 +278,8 @@ function stopPomo(silent = false) {
             if (!data.checkins[today()]) { data.checkins[today()] = { minutes, tasks: {} }; }
             else { data.checkins[today()].minutes = (data.checkins[today()].minutes || 0) + minutes; }
             saveData();
+            // ── 痛点3修复：手动停止也立即刷新左下角今日时长 ──
+            updateSidebarStats();
             pomoState.savedMinutes = minutes;
         }
         // Show progress input instead of closing
@@ -291,6 +299,8 @@ function stopPomo(silent = false) {
     document.getElementById('mini-pomo').style.display = 'none';
     document.getElementById('pomo-post-input').style.display = 'none';
     document.getElementById('pomo-pause-btn').disabled = false;
+    // ── 番茄钟结束：自动暂停秒表（数据保留可回看） ──
+    pauseStopwatch();
     saveData();
     if (document.getElementById('page-planner').classList.contains('active')) renderPlanner();
     if (document.getElementById('page-today').classList.contains('active')) renderToday();
@@ -393,3 +403,214 @@ if (typeof window !== 'undefined' && window.electronAPI) {
         }
     });
 }
+
+/* ═══════ 秒表（分段计时，独立于番茄钟） ═══════
+   用途：定时训练时记录各模块用时。
+   - 与番茄钟互不干扰，可同时运行
+   - 支持分段命名（如"言语理解"、"判断推理"）
+   - 番茄钟结束（overlay 关闭）时自动暂停，数据保留可回看 */
+
+const stopwatch = {
+    open: false,        // 面板是否展开
+    running: false,     // 是否计时中
+    baseMs: 0,          // 已累计时长（暂停时冻结）
+    runningStart: 0,    // 本次运行起点 (Date.now)
+    lapBaseMs: 0,       // 当前分段起点（相对总时长的累计值）
+    currentName: '',    // 当前分段名称
+    laps: [],           // [{ name, ms }]
+    interval: null,
+};
+
+function formatClock(ms) {
+    const totalSec = Math.max(0, Math.round(ms / 1000));
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+    if (h > 0) return `${h}时${m}分${s}秒`;
+    if (m > 0) return `${m}分${s}秒`;
+    return `${s}秒`;
+}
+
+function stopwatchTotal() {
+    return stopwatch.baseMs + (stopwatch.running ? Date.now() - stopwatch.runningStart : 0);
+}function stopwatchLapMs() {
+    return Math.max(0, stopwatchTotal() - stopwatch.lapBaseMs);
+}
+
+function stopwatchTick() {
+    if (!stopwatch.running) return;
+    document.getElementById('sw-total').textContent = formatClock(stopwatchTotal());
+    document.getElementById('sw-cur').textContent = formatClock(stopwatchLapMs());
+}
+
+function toggleStopwatch() {
+    stopwatch.open = !stopwatch.open;
+    document.getElementById('stopwatch-body').style.display = stopwatch.open ? 'flex' : 'none';
+    document.getElementById('sw-arrow').textContent = stopwatch.open ? '▴' : '▾';
+    if (stopwatch.open) {
+        // 展开时同步一次显示
+        if (stopwatch.running) {
+            stopwatchTick();
+        } else if (stopwatch.laps.length || stopwatch.lapBaseMs > 0) {
+            const total = stopwatchTotal();
+            document.getElementById('sw-total').textContent = formatClock(total);
+            document.getElementById('sw-cur').textContent = formatClock(stopwatchLapMs());
+        }
+        renderStopwatchLaps();
+    }
+}
+
+function toggleStopwatchRun() {
+    const btn = document.getElementById('sw-run-btn');
+    if (!stopwatch.running) {
+        stopwatch.running = true;
+        stopwatch.runningStart = Date.now();
+        // 首次开始：自动建立第 1 段（名称实时取自输入框）
+        if (stopwatch.laps.length === 0 && stopwatch.lapBaseMs === 0) {
+            stopwatch.currentName = document.getElementById('sw-name-input').value.trim() || '第1段';
+            stopwatch.lapBaseMs = 0;
+        }
+        btn.textContent = '⏸ 暂停';
+        stopwatch.interval = setInterval(stopwatchTick, 200);
+    } else {
+        stopwatch.baseMs = stopwatchTotal();
+        stopwatch.running = false;
+        clearInterval(stopwatch.interval);
+        btn.textContent = '▶ 继续';
+    }
+    updateStopwatchStatusHint();
+    stopwatchTick();
+}
+
+// 输入框实时同步当前段名称（修复：运行中改名称不再错位）
+function onStopwatchNameInput() {
+    stopwatch.currentName = document.getElementById('sw-name-input').value.trim() || '';
+}
+
+function stopwatchLap() {
+    if (!stopwatch.running) return;
+    const lapMs = stopwatchLapMs();
+    stopwatch.laps.push({ name: stopwatch.currentName || `第${stopwatch.laps.length + 1}段`, ms: lapMs });
+    stopwatch.lapBaseMs = stopwatchTotal();
+    // 新段名称：清空输入框，等待用户输入下一段名称
+    document.getElementById('sw-name-input').value = '';
+    stopwatch.currentName = '';
+    renderStopwatchLaps();
+    stopwatchTick();
+    showToast(`⏱ 第${stopwatch.laps.length}段「${stopwatch.laps[stopwatch.laps.length - 1].name}」已记录`);
+}
+
+function resetStopwatch() {
+    stopwatch.running = false;
+    clearInterval(stopwatch.interval);
+    stopwatch.baseMs = 0;
+    stopwatch.runningStart = 0;
+    stopwatch.lapBaseMs = 0;
+    stopwatch.currentName = '';
+    stopwatch.laps = [];
+    document.getElementById('sw-run-btn').textContent = '▶ 开始';
+    document.getElementById('sw-total').textContent = '00:00';
+    document.getElementById('sw-cur').textContent = '00:00';
+    document.getElementById('sw-name-input').value = '';
+    renderStopwatchLaps();
+    updateStopwatchStatusHint();
+}
+
+// 暂停秒表（保留数据）——番茄钟结束时调用
+function pauseStopwatch() {
+    if (!stopwatch.running) return;
+    stopwatch.baseMs = stopwatchTotal();
+    stopwatch.running = false;
+    clearInterval(stopwatch.interval);
+    const btn = document.getElementById('sw-run-btn');
+    if (btn) btn.textContent = '▶ 继续';
+    updateStopwatchStatusHint();
+}
+
+function updateStopwatchStatusHint() {
+    const hint = document.getElementById('sw-status-hint');
+    if (!hint) return;
+    if (stopwatch.running) {
+        hint.textContent = '● 计时中';
+    } else if (stopwatch.laps.length || stopwatch.baseMs > 0) {
+        hint.textContent = `已记录 ${stopwatch.laps.length} 段`;
+    } else {
+        hint.textContent = '';
+    }
+}
+
+function renderStopwatchLaps() {
+    const list = document.getElementById('sw-lap-list');
+    if (!list) return;
+    list.innerHTML = '';
+    if (!stopwatch.laps.length) {
+        const empty = document.createElement('div');
+        empty.className = 'sw-empty';
+        empty.textContent = '暂无分段记录 — 点「⏱ 分段」开始记录各模块用时';
+        list.appendChild(empty);
+        return;
+    }
+    let totalMs = 0;
+    stopwatch.laps.forEach((l, i) => {
+        totalMs += l.ms;
+        const row = document.createElement('div');
+        row.className = 'sw-lap-row';
+        const idx = document.createElement('span');
+        idx.className = 'sw-lap-idx';
+        idx.textContent = String(i + 1).padStart(2, '0');
+        const name = document.createElement('span');
+        name.className = 'sw-lap-name';
+        name.textContent = l.name;
+        const time = document.createElement('span');
+        time.className = 'sw-lap-time';
+        time.textContent = formatClock(l.ms);
+        row.appendChild(idx);
+        row.appendChild(name);
+        row.appendChild(time);
+        list.appendChild(row);
+    });
+    // 总计行
+    const totalRow = document.createElement('div');
+    totalRow.className = 'sw-lap-row';
+    totalRow.style.fontWeight = '700';
+    const tidx = document.createElement('span');
+    tidx.className = 'sw-lap-idx';
+    tidx.textContent = 'Σ';
+    const tname = document.createElement('span');
+    tname.className = 'sw-lap-name';
+    tname.textContent = '合计';
+    const ttime = document.createElement('span');
+    ttime.className = 'sw-lap-time';
+    ttime.textContent = formatClock(totalMs);
+    totalRow.appendChild(tidx);
+    totalRow.appendChild(tname);
+    totalRow.appendChild(ttime);
+    list.appendChild(totalRow);
+}
+
+/* ═══ 痛点3修复：轻量刷新侧边栏统计（今日时长/连续天数） ═══
+   番茄钟记录后调用，无需整页重渲染，左下角数据即时更新 */
+
+function updateSidebarStats() {
+    const el = document.getElementById('sidebar-today-min');
+    if (el) el.textContent = formatTime(getTodayPomoMinutes());
+    const el2 = document.getElementById('sidebar-streak');
+    if (el2) el2.textContent = calcStreak() + ' 天';
+}
+
+/* ═══ 痛点2修复：番茄钟活动期间拦截空格键 ═══
+   根因：空格会触发当前聚焦按钮的点击 → 误触"开始"重新计时。
+   输入框/文本域中不拦截（允许正常输入空格）。 */
+
+document.addEventListener('keydown', (e) => {
+    if (e.code !== 'Space' && e.key !== ' ') return;
+    const el = document.activeElement;
+    if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
+    const overlay = document.getElementById('pomo-overlay');
+    const mini = document.getElementById('mini-pomo');
+    const active = (overlay && overlay.style.display !== 'none') || (mini && mini.style.display !== 'none');
+    if (active) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+});

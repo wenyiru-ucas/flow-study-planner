@@ -19,6 +19,7 @@
             <div class="logo"><span>小文同学</span></div>
             <button class="nav-item active" data-page="planner"><span class="icon">📅</span> <span>月度规划</span></button>
             <button class="nav-item" data-page="today"><span class="icon">🎯</span> <span>今日任务</span></button>
+            <button class="nav-item" data-page="exam"><span class="icon">🏫</span> <span>考场模拟</span></button>
             <button class="nav-item" data-page="analytics"><span class="icon">📈</span> <span>数据分析</span></button>
             <button class="nav-item" data-page="countdown"><span class="icon">⏳</span> <span>倒数日</span></button>
             <button class="nav-item" data-page="wrongbook"><span class="icon">📕</span> <span>错题本</span></button>
@@ -117,6 +118,92 @@
                 <div class="task-list" id="today-task-list"></div>
             </div>
 
+            <!-- ═══ 考场模拟 ═══ -->
+            <div class="page" id="page-exam">
+                <h2 style="font-size:22px;font-weight:700;margin-bottom:24px;">🏫 考场模拟</h2>
+                <div class="exam-setup" id="exam-setup">
+                    <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end;">
+                        <div class="form-group">
+                            <label>时制</label>
+                            <select id="exam-hour-format" style="padding:8px 12px;border-radius:10px;border:1px solid var(--border-outline);background:var(--input-bg);color:var(--text);font-size:14px;font-family:inherit;outline:none;">
+                                <option value="24">24 小时制</option>
+                                <option value="12">12 小时制</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>开考时间</label>
+                            <input type="time" id="exam-start-time" style="padding:8px 12px;border-radius:10px;border:1px solid var(--border-outline);background:var(--input-bg);color:var(--text);font-size:14px;font-family:inherit;outline:none;">
+                        </div>
+                        <div class="form-group">
+                            <label>考试时长</label>
+                            <div style="display:flex;align-items:center;gap:6px;">
+                                <input type="number" id="exam-dur-h" value="2" min="0" max="6" style="width:56px;padding:8px 8px;border-radius:10px;border:1px solid var(--border-outline);background:var(--input-bg);color:var(--text);font-size:14px;font-family:inherit;outline:none;text-align:center;">
+                                <span style="font-size:12px;color:var(--text2);">时</span>
+                                <input type="number" id="exam-dur-m" value="0" min="0" max="59" style="width:56px;padding:8px 8px;border-radius:10px;border:1px solid var(--border-outline);background:var(--input-bg);color:var(--text);font-size:14px;font-family:inherit;outline:none;text-align:center;">
+                                <span style="font-size:12px;color:var(--text2);">分</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:8px;margin-top:14px;">
+                        <button class="btn btn-primary btn-sm" id="exam-run-btn" onclick="toggleExam()">▶ 开始</button>
+                        <button class="btn btn-outline btn-sm" id="exam-pause-btn" onclick="toggleExamPause()" disabled>⏸ 暂停</button>
+                        <button class="btn btn-outline btn-sm" onclick="resetExam()">↺ 重置</button>
+                    </div>
+                </div>
+
+                <div class="exam-clock-card">
+                    <div class="exam-timeup-banner" id="exam-timeup-banner" style="display:none;">⏰ 考试时间到！</div>
+                    <div class="exam-clock" id="exam-clock">--:--:--</div>
+                </div>
+
+                <!-- ⏱ 模块计时（预设行测六大模块，同模块自动合并） -->
+                <div class="exam-stopwatch-card">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+                        <h3 style="font-size:15px;font-weight:700;">⏱ 模块计时</h3>
+                        <span style="font-size:11px;color:var(--text3);">点击模块开始计时 / 切换分段 · 同模块自动合并</span>
+                    </div>
+                    <div class="ex-sw-layout">
+                        <div class="ex-sw-left">
+                            <div class="ex-sw-modules">
+                                <button class="btn btn-outline btn-sm ex-sw-module" data-mod="政治理论" onclick="examSwStartModule('政治理论')">政治理论</button>
+                                <button class="btn btn-outline btn-sm ex-sw-module" data-mod="常识判断" onclick="examSwStartModule('常识判断')">常识判断</button>
+                                <button class="btn btn-outline btn-sm ex-sw-module" data-mod="言语理解" onclick="examSwStartModule('言语理解')">言语理解</button>
+                                <button class="btn btn-outline btn-sm ex-sw-module" data-mod="数量关系" onclick="examSwStartModule('数量关系')">数量关系</button>
+                                <button class="btn btn-outline btn-sm ex-sw-module" data-mod="判断推理" onclick="examSwStartModule('判断推理')">判断推理</button>
+                                <button class="btn btn-outline btn-sm ex-sw-module" data-mod="资料分析" onclick="examSwStartModule('资料分析')">资料分析</button>
+                            </div>
+                            <div class="sw-time-row">
+                                <div class="sw-time-cell">
+                                    <div class="sw-label">总用时</div>
+                                    <div class="sw-total" id="ex-sw-total">0分0秒</div>
+                                </div>
+                                <div class="sw-time-cell">
+                                    <div class="sw-label">当前段</div>
+                                    <div class="sw-cur" style="font-size:14px;color:var(--text);margin-bottom:2px;" id="ex-sw-cur-name">—</div>
+                                    <div class="sw-cur" id="ex-sw-cur">0分0秒</div>
+                                </div>
+                            </div>
+                            <div class="sw-btn-row">
+                                <button class="btn btn-primary btn-sm" id="ex-sw-run-btn" onclick="examSwToggleRun()">▶ 开始</button>
+                                <button class="btn btn-outline btn-sm" onclick="examSwReset()">↺ 重置</button>
+                            </div>
+                        </div>
+                        <div class="ex-sw-right">
+                            <div class="sw-lap-list" id="ex-sw-lap-list"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 📚 历史记录（自动保存每次模考分模块用时） -->
+                <div class="exam-history-card">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                        <h3 style="font-size:15px;font-weight:700;">📚 历史记录</h3>
+                        <span style="font-size:11px;color:var(--text3);">每次结束模考自动保存 · 可回顾分模块用时</span>
+                    </div>
+                    <div id="exam-history-list" style="font-size:13px;"></div>
+                </div>
+            </div>
+
             <!-- ═══ Analytics ═══ -->
             <div class="page" id="page-analytics">
                 <h2 style="font-size:22px;font-weight:700;margin-bottom:24px;">📈 数据分析</h2>
@@ -176,6 +263,11 @@
                     <div class="form-group"><label>各模块建议单题用时（分钟）</label></div>
                     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;" id="ref-times-grid"></div>
                     <button class="btn btn-ghost btn-sm" onclick="saveSettings()" style="margin-top:8px;">💾 保存</button>
+                </div>
+                <div class="setting-card">
+                    <h3 style="font-size:16px;font-weight:700;margin-bottom:16px;">🎨 标签颜色</h3>
+                    <p style="font-size:12px;color:var(--text2);margin-bottom:12px;">点色点修改标签颜色，任务与数据分析图表将自动跟随</p>
+                    <div id="tag-color-grid" style="font-size:13px;"></div>
                 </div>
                 <div class="setting-card">
                     <h3 style="font-size:16px;font-weight:700;margin-bottom:16px;">🍅 番茄钟记录管理</h3>
@@ -262,30 +354,61 @@
     <!-- ═══ Pomodoro ═══ -->
     <div class="pomo-overlay" id="pomo-overlay" style="display:none;">
         <div class="pomo-card">
-            <div class="pomo-phase" id="pomo-phase-label">🍅 专注中</div>
-            <div class="pomo-task" id="pomo-task-name"></div>
-            <div class="pomo-ring-wrap">
-                <svg viewBox="0 0 220 220">
-                    <circle class="ring-bg" cx="110" cy="110" r="100"/>
-                    <circle class="ring-fg" id="pomo-ring" cx="110" cy="110" r="100" stroke-dasharray="628" stroke-dashoffset="0"/>
-                </svg>
-                <div class="pomo-timer-display" id="pomo-timer">60:00</div>
-            </div>
-            <div class="pomo-actions">
-                <button class="btn btn-outline btn-sm" id="pomo-pause-btn" onclick="togglePomo()">⏸ 暂停</button>
-                <button class="btn btn-outline btn-sm" onclick="stopPomo()">⏹ 结束</button>
-                <button class="btn btn-outline btn-sm" onclick="minimizePomo()">━ 最小化</button>
-            </div>
-            <div class="pomo-post-input" id="pomo-post-input" style="display:none;">
-                <div class="ppi-label">✅ 专注完成！</div>
-                <div class="ppi-row">
-                    <input type="number" id="pomo-duration-input" placeholder="专注分钟" min="1" style="width:80px;text-align:center;">
-                    <span style="font-size:13px;color:var(--text2);display:flex;align-items:center;">分钟</span>
+            <!-- 左栏：番茄钟主体 -->
+            <div class="pomo-main">
+                <div class="pomo-phase" id="pomo-phase-label">🍅 专注中</div>
+                <div class="pomo-task" id="pomo-task-name"></div>
+                <div class="pomo-ring-wrap">
+                    <svg viewBox="0 0 220 220">
+                        <circle class="ring-bg" cx="110" cy="110" r="100"/>
+                        <circle class="ring-fg" id="pomo-ring" cx="110" cy="110" r="100" stroke-dasharray="628" stroke-dashoffset="0"/>
+                    </svg>
+                    <div class="pomo-timer-display" id="pomo-timer">60:00</div>
                 </div>
-                <div class="ppi-label" style="margin-top:12px;">📝 今天完成了多少？</div>
-                <div class="ppi-row">
-                    <input type="number" id="pomo-done-input" placeholder="输入完成量…" min="0">
-                    <button class="btn btn-primary btn-sm" onclick="submitPomoProgress()">确认</button>
+                <div class="pomo-actions">
+                    <button class="btn btn-outline btn-sm" id="pomo-pause-btn" onclick="togglePomo()">⏸ 暂停</button>
+                    <button class="btn btn-outline btn-sm" onclick="stopPomo()">⏹ 结束</button>
+                    <button class="btn btn-outline btn-sm" onclick="minimizePomo()">━ 最小化</button>
+                </div>
+                <div class="pomo-post-input" id="pomo-post-input" style="display:none;">
+                    <div class="ppi-label">✅ 专注完成！</div>
+                    <div class="ppi-row">
+                        <input type="number" id="pomo-duration-input" placeholder="专注分钟" min="1" style="width:80px;text-align:center;">
+                        <span style="font-size:13px;color:var(--text2);display:flex;align-items:center;">分钟</span>
+                    </div>
+                    <div class="ppi-label" style="margin-top:12px;">📝 今天完成了多少？</div>
+                    <div class="ppi-row">
+                        <input type="number" id="pomo-done-input" placeholder="输入完成量…" min="0">
+                        <button class="btn btn-primary btn-sm" onclick="submitPomoProgress()">确认</button>
+                    </div>
+                </div>
+            </div>
+            <!-- 右栏：秒表（分段计时，默认收起） -->
+            <div class="pomo-side">
+                <div class="stopwatch-toggle" onclick="toggleStopwatch()">
+                    <span class="sw-toggle-title">⏱ 秒表 <em id="sw-status-hint"></em></span>
+                    <span class="sw-arrow" id="sw-arrow">▾</span>
+                </div>
+                <div class="stopwatch-body" id="stopwatch-body" style="display:none;">
+                    <div class="sw-name-row">
+                        <input type="text" id="sw-name-input" placeholder="本段名称（如：言语理解）" maxlength="24" oninput="onStopwatchNameInput()">
+                    </div>
+                    <div class="sw-time-row">
+                        <div class="sw-time-cell">
+                            <div class="sw-label">总用时</div>
+                            <div class="sw-total" id="sw-total">0分0秒</div>
+                        </div>
+                        <div class="sw-time-cell">
+                            <div class="sw-label" id="sw-cur-label">当前段</div>
+                            <div class="sw-cur" id="sw-cur">0分0秒</div>
+                        </div>
+                    </div>
+                    <div class="sw-btn-row">
+                        <button class="btn btn-primary btn-sm" id="sw-run-btn" onclick="toggleStopwatchRun()">▶ 开始</button>
+                        <button class="btn btn-outline btn-sm" onclick="stopwatchLap()">⏱ 分段</button>
+                        <button class="btn btn-outline btn-sm" onclick="resetStopwatch()">↺ 重置</button>
+                    </div>
+                    <div class="sw-lap-list" id="sw-lap-list"></div>
                 </div>
             </div>
         </div>
@@ -350,6 +473,7 @@
     <script src="./modules/pomodoro.js"></script>
     <script src="./modules/taskModal.js"></script>
     <script src="./modules/countdown.js"></script>
+    <script src="./modules/exam.js"></script>
     <script src="./modules/analytics.js"></script>
     <script src="./modules/ai.js"></script>
     <script src="./modules/settings.js"></script>

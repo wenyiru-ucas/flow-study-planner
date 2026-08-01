@@ -28,6 +28,9 @@ function showToast(msg) {
 function init() {
     applyTheme(getTheme());
     loadData();
+    // ── 痛点1：标签颜色配置化（首次初始化 + 同步任务颜色） ──
+    initTagColors();
+    migrateTaskColors();
     if (data.tasks.length === 0) {
         const td = today();
         const eom = new Date();
