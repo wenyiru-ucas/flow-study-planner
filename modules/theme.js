@@ -31,8 +31,9 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e =
     }
 });
 function getTaskColor(idx) {
-    // 始终返回浅色基准色（存储标准值），显示时由 getDisplayColor 做深色映射
-    return TASK_COLORS[idx % TASK_COLORS.length];
+    // 从用户可配置色板取色（存储标准值），显示时由 getDisplayColor 做深色映射
+    const pal = getPalette();
+    return pal[idx % pal.length];
 }
 function getCSSVar(name) {
     return getComputedStyle(document.documentElement).getPropertyValue(name).trim();

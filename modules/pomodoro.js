@@ -55,6 +55,13 @@ function startPomo(taskId, taskName) {
     document.getElementById('pomo-post-input').style.display = 'none';
     document.getElementById('pomo-done-input').value = '';
 
+    // ── 08-06#2：新番茄钟开始时 ──
+    // 秒表直接展开（无需手动点击）；名称由用户自行填写
+    if (!stopwatch.open) toggleStopwatch();
+    // 清掉上一轮待修正的 session / 秒表记录引用
+    pomoState.pendingSession = null;
+    pomoState.pendingSwLog = null;
+
     updatePomoDisplay();
     if (pomoState.interval) clearInterval(pomoState.interval);
     pomoState.interval = setInterval(pomoTick, 250);
@@ -92,7 +99,10 @@ function finishPomoSession() {
     const minutes = Math.round(pomoState.elapsedSec / 60);
     if (!pomoState.isBreak) {
         // 【第3步】session 加 doneDelta（默认0）和 startedAt
-        data.pomodoroSessions.push({ taskId: pomoState.taskId, minutes, date: today(), doneDelta: 0, startedAt: pomoState.startedAt });
+        const sess = { taskId: pomoState.taskId, minutes, date: today(), doneDelta: 0, startedAt: pomoState.startedAt };
+        data.pomodoroSessions.push(sess);
+        // 【修复】记录本次 session 引用，提交时直接修正（替代脆弱的"最后一条匹配"）
+        pomoState.pendingSession = sess;
         const task = data.tasks.find(t => t.id === pomoState.taskId);
         if (task) task.pomoMinutes = (task.pomoMinutes || 0) + minutes;
         if (!data.checkins[today()]) { data.checkins[today()] = { minutes, tasks: {} }; } else { data.checkins[today()].minutes = (data.checkins[today()].minutes || 0) + minutes; }
@@ -108,6 +118,14 @@ function finishPomoSession() {
         document.getElementById('pomo-post-input').style.display = 'block';
         document.getElementById('pomo-done-input').focus();
         pomoState.running = false;
+        // ── 本次练习结束：保存秒表分段记录（仅启动过秒表时弹窗显示正确率） ──
+        const swSaved = saveStopwatchRecord(pomoState.taskId, pomoState.taskName);
+        showPomoScoreArea(swSaved);
+        resetStopwatch();
+        document.getElementById('pomo-q-input').value = '';
+        document.getElementById('pomo-c-input').value = '';
+        document.getElementById('pomo-category-input').value = '';
+        document.getElementById('pomo-item-input').value = '';
         if (window.electronAPI) {
             window.electronAPI.sendPomoFinished({
                 taskName: pomoState.taskName,
@@ -140,19 +158,19 @@ function submitPomoProgress() {
     const tempItem = data.tempChecklist.find(i => i.id === pomoState.taskId);
     const productiveMin = Math.max(1, durMin);
     if (!isNaN(val) && val >= 0 && productiveMin > 0) {
-        // Update the just-saved pomodoro session with corrected duration + doneDelta
+        // 【修复】直接用本次 session 引用修正时长（替代脆弱的"最后一条三元匹配"）
         const sessions = data.pomodoroSessions;
         let updated = false;
-        if (sessions.length > 0) {
-            const last = sessions[sessions.length - 1];
-            if (last.taskId === pomoState.taskId && last.date === today() && last.minutes === Math.round(pomoState.savedMinutes || pomoState.elapsedSec / 60)) {
-                const diff = productiveMin - last.minutes;
-                last.minutes = productiveMin;
-                last.doneDelta = val || 0;   // 【第3步】回填本次完成量
-                if (task) task.pomoMinutes = (task.pomoMinutes || 0) + diff;
-                if (data.checkins[today()]) data.checkins[today()].minutes = (data.checkins[today()].minutes || 0) + diff;
-                updated = true;
-            }
+        const last = pomoState.pendingSession
+            ? sessions.find(s => s === pomoState.pendingSession)
+            : sessions[sessions.length - 1];
+        if (last && last.taskId === pomoState.taskId && last.date === today()) {
+            const diff = productiveMin - last.minutes;
+            last.minutes = productiveMin;
+            last.doneDelta = val || 0;   // 【第3步】回填本次完成量
+            if (task) task.pomoMinutes = (task.pomoMinutes || 0) + diff;
+            if (data.checkins[today()]) data.checkins[today()].minutes = (data.checkins[today()].minutes || 0) + diff;
+            updated = true;
         }
         // 【第3步】兜底：若三元匹配失败，单独 push 一条带 doneDelta 的 session，避免完成量丢失
         if (!updated && val > 0) {
@@ -192,6 +210,26 @@ function submitPomoProgress() {
             setTimeout(() => openExerciseModal(task.id, task.name), 600);
         }
     }
+    // ── 【修复】本次练习正确率（独立保存，即使未填完成量也生效） ──
+    const swQ = parseInt(document.getElementById('pomo-q-input').value) || 0;
+    const swC = parseInt(document.getElementById('pomo-c-input').value) || 0;
+    if (swQ > 0 && pomoState.pendingSwLog) {
+        pomoState.pendingSwLog.questions = swQ;
+        pomoState.pendingSwLog.correct = Math.min(swC, swQ);
+        saveData();
+    }
+    // ── 类别 / 名称（选填）写入刚保存的秒表记录 ──
+    if (pomoState.pendingSwLog) {
+        const catEl = document.getElementById('pomo-category-input');
+        const itemEl = document.getElementById('pomo-item-input');
+        const cat = catEl ? catEl.value.trim() : '';
+        const item = itemEl ? itemEl.value.trim() : '';
+        let changed = false;
+        if (cat) { pomoState.pendingSwLog.category = cat; changed = true; }
+        if (item) { pomoState.pendingSwLog.item = item; changed = true; }
+        if (changed) saveData();
+    }
+    pomoState.pendingSwLog = null;
     // Start break
     pomoState.isBreak = true;
     pomoState.totalSec = (data.settings.pomoBreak || 5) * 60;
@@ -235,6 +273,10 @@ function togglePomo() {
         // Pause
         pomoState.running = false;
         pomoState.pausedElapsed = pomoState.elapsedSec;
+        if (!pomoState.isCountUp) {
+            // 【修复】记录剩余秒数，恢复时才能从暂停点继续
+            pomoState.pausedRemaining = Math.max(0, pomoState.totalSec - pomoState.elapsedSec);
+        }
         clearInterval(pomoState.interval);
         document.getElementById('pomo-pause-btn').textContent = '▶ 继续';
     } else {
@@ -251,6 +293,15 @@ function togglePomo() {
         pomoState.pausedElapsed = null;
         document.getElementById('pomo-pause-btn').textContent = '⏸ 暂停';
         pomoState.interval = setInterval(pomoTick, 250);
+        // 【修复】同步最新 startedAt/totalSec 到主进程，Tray 计时从暂停点继续
+        if (window.electronAPI) {
+            window.electronAPI.sendPomoStarted({
+                startedAt: pomoState.startedAt,
+                totalSec: pomoState.totalSec,
+                isCountUp: pomoState.isCountUp,
+                taskName: pomoState.taskName || '',
+            });
+        }
     }
     syncPomoToTray();
 }
@@ -272,7 +323,10 @@ function stopPomo(silent = false) {
         const minutes = Math.round(pomoState.elapsedSec / 60);
         if (minutes > 0) {
             // 【第3步】手动停止的 session 也加 doneDelta/startedAt
-            data.pomodoroSessions.push({ taskId: pomoState.taskId, minutes, date: today(), doneDelta: 0, startedAt: pomoState.startedAt });
+            const sess = { taskId: pomoState.taskId, minutes, date: today(), doneDelta: 0, startedAt: pomoState.startedAt };
+            data.pomodoroSessions.push(sess);
+            // 【修复】记录本次 session 引用，提交时直接修正
+            pomoState.pendingSession = sess;
             const task = data.tasks.find(t => t.id === pomoState.taskId);
             if (task) task.pomoMinutes = (task.pomoMinutes || 0) + minutes;
             if (!data.checkins[today()]) { data.checkins[today()] = { minutes, tasks: {} }; }
@@ -292,6 +346,14 @@ function stopPomo(silent = false) {
         document.getElementById('pomo-done-input').value = '';
         document.getElementById('pomo-done-input').focus();
         pomoState.running = false;
+        // ── 08-06#2：训练结束（手动结束）→ 保存秒表分段记录（仅启动过秒表时弹窗显示正确率） ──
+        const swSaved = saveStopwatchRecord(pomoState.taskId, pomoState.taskName);
+        showPomoScoreArea(swSaved);
+        resetStopwatch();
+        document.getElementById('pomo-q-input').value = '';
+        document.getElementById('pomo-c-input').value = '';
+        document.getElementById('pomo-category-input').value = '';
+        document.getElementById('pomo-item-input').value = '';
         return;
     }
     pomoState.running = false;
@@ -313,7 +375,19 @@ function stopPomo(silent = false) {
 // 每秒通知主进程当前番茄钟状态，用于更新菜单栏 Tray 倒计时 & 右键菜单
 function syncPomoToTray() {
     if (!window.electronAPI) return;
+    // 剩余秒数：暂停时用 pausedRemaining，否则实时计算
+    let remain;
+    if (pomoState.isCountUp) {
+        remain = pomoState.elapsedSec;
+    } else if (!pomoState.running && pomoState.pausedRemaining != null) {
+        remain = pomoState.pausedRemaining;
+    } else {
+        remain = Math.max(0, pomoState.totalSec - pomoState.elapsedSec);
+    }
+    const m = Math.floor(remain / 60);
+    const s = remain % 60;
     window.electronAPI.sendPomoState({
+        timeStr: `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`,
         running: !!pomoState.running,
         paused: !pomoState.running && pomoState.pausedElapsed != null,
         isBreak: !!pomoState.isBreak,
@@ -537,6 +611,45 @@ function updateStopwatchStatusHint() {
     } else {
         hint.textContent = '';
     }
+}
+
+// ── 08-06#2：保存本次训练的秒表分段记录到任务（复盘用） ──
+// 返回 true = 保存了记录（本次启动过秒表）；false = 秒表未启动
+function saveStopwatchRecord(taskId, taskName) {
+    const hasData = stopwatch.laps.length > 0 || stopwatch.baseMs > 0 || stopwatch.running;
+    if (!hasData) return false;
+    // 结算当前进行段
+    const laps = [...stopwatch.laps];
+    if (stopwatch.baseMs > 0 || stopwatch.running) {
+        const cur = stopwatchLapMs();
+        if (cur > 0) laps.push({ name: stopwatch.currentName || '未命名段', ms: Math.round(cur) });
+    }
+    if (!laps.length) return false;
+    const task = data.tasks.find(t => t.id === taskId);
+    if (!task) return false;
+    if (!task.stopwatchLogs) task.stopwatchLogs = [];
+    const log = {
+        date: today(),
+        laps: laps.map(l => ({ name: l.name, ms: Math.round(l.ms) })),
+        totalMs: laps.reduce((s, l) => s + l.ms, 0),
+        questions: null,   // 题数（弹窗/任务弹窗补填）
+        correct: null,     // 答对数（弹窗/任务弹窗补填）
+        category: null,    // 类别（大模块，如资料分析）
+        item: null,        // 名称（具体题本，如 A老师第7套）
+        createdAt: Date.now(),
+    };
+    task.stopwatchLogs.push(log);
+    // 记录引用，供结束弹窗填写正确率
+    pomoState.pendingSwLog = log;
+    saveData();
+    showToast(`⏱ 秒表分段已保存（${laps.length} 段）`);
+    return true;
+}
+
+// 结束弹窗：仅当本次启动过秒表时才显示正确率填写区
+function showPomoScoreArea(saved) {
+    const section = document.getElementById('pomo-score-section');
+    if (section) section.style.display = saved ? '' : 'none';
 }
 
 function renderStopwatchLaps() {

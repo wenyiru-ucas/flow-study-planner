@@ -12,7 +12,7 @@ document.querySelectorAll('.nav-item').forEach(btn => {
         if (p === 'planner') renderPlanner();
         if (p === 'today') renderToday();
         if (p === 'exam') renderExam();
-        if (p === 'analytics') renderAnalytics();
+        if (p === 'analytics') { applyChartOrder(); setupChartDrag(); renderAnalytics(); }
         if (p === 'countdown') renderCountdown();
         if (p === 'settings') loadSettings();
         if (p === 'wrongbook') renderWrongBook();

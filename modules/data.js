@@ -25,11 +25,14 @@ function loadData() {
         timerMode: t.timerMode || 'countdown',
         pomoUnits: t.pomoUnits || 0,
         pomoProductive: t.pomoProductive || 0,
+        stopwatchLogs: t.stopwatchLogs || [],   // 【修复】保留秒表分段记录（手动录入数据不丢失）
     }));
     if (!data.pomodoroSessions) data.pomodoroSessions = [];
     if (!data.settings) data.settings = { apiKey: '', reminderTime: '09:00', pomoWork: 60, pomoBreak: 5 };
     if (!data.settings.wrongTags) data.settings.wrongTags = ['概念不熟', '粗心', '时间不够蒙的', '计算错误'];
     if (!data.settings.exerciseRefTimes) data.settings.exerciseRefTimes = { '言语理解': 1.0, '判断推理': 1.0, '数量关系': 1.5, '资料分析': 1.5, '常识': 0.8 };
+    // 【用户可配置色板】首次初始化默认 4 色，之后可手动增删
+    if (!Array.isArray(data.settings.palette) || !data.settings.palette.length) data.settings.palette = [...TASK_COLORS];
     if (!data.exerciseRecords) data.exerciseRecords = [];
     if (!data.dailyDone) data.dailyDone = {};
     if (!data.tempChecklist) data.tempChecklist = [];

@@ -264,10 +264,7 @@ function setupIPC() {
         pomoState.paused = false;
         pomoState.isBreak = false;
         pomoState.taskName = info.taskName || '';
-        if (tray) {
-            tray.setImage(runningIcon);
-            tray.setContextMenu(buildTrayMenu());
-        }
+        if (tray) tray.setImage(runningIcon);
         startTrayTimer();
     });
 
@@ -284,8 +281,13 @@ function setupIPC() {
             if (wasRunning !== isRunning) {
                 tray.setImage(isRunning ? runningIcon : idleIcon);
             }
-            if (!isRunning) tray.setTitle('');
-            tray.setContextMenu(buildTrayMenu());
+            // 暂停：冻结显示剩余时间；未运行：清空
+            if (state.paused && state.timeStr) {
+                tray.setTitle(state.timeStr);
+            } else if (!isRunning) {
+                tray.setTitle('');
+            }
+            // 菜单改为右键动态弹出，不再常驻 setContextMenu（避免左键误弹）
         }
 
         // 暂停时停止主进程计时器；继续时重启
@@ -317,7 +319,6 @@ function setupIPC() {
         if (tray) {
             tray.setImage(idleIcon);
             tray.setTitle('');
-            tray.setContextMenu(buildTrayMenu());
         }
     });
 
@@ -343,7 +344,6 @@ function setupIPC() {
         if (tray) {
             tray.setImage(idleIcon);
             tray.setTitle('');
-            tray.setContextMenu(buildTrayMenu());
         }
     });
 }
@@ -361,8 +361,8 @@ app.whenReady().then(() => {
     // 创建托盘：默认显示空闲图标
     tray = new Tray(idleIcon);
     tray.setToolTip('Flow 学习计划助手');
-    tray.setContextMenu(buildTrayMenu());
 
+    // 左键点击：只切换窗口显示/隐藏（不弹菜单）
     tray.on('click', () => {
         if (win.isVisible()) {
             win.hide();
@@ -370,6 +370,11 @@ app.whenReady().then(() => {
             win.show();
             win.focus();
         }
+    });
+
+    // 右键点击：动态弹出快捷菜单（不常驻菜单，避免左键误弹）
+    tray.on('right-click', () => {
+        tray.popUpContextMenu(buildTrayMenu());
     });
 
     app.on('activate', () => {

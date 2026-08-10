@@ -14,6 +14,35 @@ const TASK_COLORS = ['#ff3b30', '#f5a623', '#0071e3', '#34c759'];  // 红 / 琥�
 // 深色模式显示变体（更柔和，保证深色背景下不刺眼）
 const TASK_COLORS_DARK = ['#ff6b6b', '#f0b960', '#5db8fe', '#5ce694'];
 
+// ── 用户可配置色板（settings.palette，可手动增删） ──
+function getPalette() {
+    const pal = data.settings && data.settings.palette;
+    return (Array.isArray(pal) && pal.length) ? pal : TASK_COLORS;
+}
+
+// 添加颜色到色板（返回是否成功；重复/非法返回 false）
+function addPaletteColor(hex) {
+    const c = String(hex || '').toLowerCase();
+    if (!/^#[0-9a-f]{6}$/.test(c)) return false;
+    if (!data.settings.palette) data.settings.palette = [...TASK_COLORS];
+    if (data.settings.palette.some(x => String(x).toLowerCase() === c)) return false;
+    data.settings.palette.push(c);
+    saveData();
+    return true;
+}
+
+// 从色板删除颜色（至少保留 1 个；不影响已用该色的任务）
+function removePaletteColor(hex) {
+    const pal = getPalette();
+    if (pal.length <= 1) return false;
+    const c = String(hex || '').toLowerCase();
+    const idx = pal.findIndex(x => String(x).toLowerCase() === c);
+    if (idx < 0) return false;
+    pal.splice(idx, 1);
+    saveData();
+    return true;
+}
+
 // 基准色 → 深色变体 映射（getDisplayColor 用）
 const TASK_COLOR_DARK_MAP = {
     '#ff3b30': '#ff6b6b',
