@@ -12,6 +12,9 @@ electron-userdata/
 Flow_备份_*.json
 flow_study_data*.json
 
+# ── AI 开发对话存档（公开仓库不需要） ──
+开发对话*.json
+
 # ── 系统文件 ──
 .DS_Store
 
