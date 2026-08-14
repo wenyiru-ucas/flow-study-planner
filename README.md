@@ -46,6 +46,20 @@ Flow 的核心理念是：
 > ⏳ 截图待补充 —— 欢迎贡献（见 [贡献](#-贡献)）
 
 *界面预览：月度规划 · 今日任务 · 番茄钟 · 考场模拟 · 数据分析*
+**1、月度规划（主界面）**
+<img width="1280" height="816" alt="image" src="https://github.com/user-attachments/assets/22ed0547-689e-412f-89dc-83c4dc9b9dc3" />
+
+**2、今日任务界面**
+<img width="1280" height="816" alt="image" src="https://github.com/user-attachments/assets/9e863b7f-f99a-48dc-bdcc-a996976232f7" />
+
+**3、考场模拟界面**
+<img width="1280" height="816" alt="image" src="https://github.com/user-attachments/assets/454534ac-85c5-48cf-bc36-ca88a41406b3" />
+
+**4、数据分析界面**
+<img width="1280" height="816" alt="image" src="https://github.com/user-attachments/assets/ee20e172-3c59-47e0-8780-3a4cf8caf499" />
+
+**5、倒数日**
+<img width="1280" height="816" alt="image" src="https://github.com/user-attachments/assets/ab343787-aa54-4e25-8ee7-7d4ab4a73b84" />
 
 ---
 
