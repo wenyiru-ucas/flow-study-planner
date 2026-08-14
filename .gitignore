@@ -8,6 +8,10 @@ dist/
 # ── Electron 运行时数据（开发模式，含 Chromium 缓存） ──
 electron-userdata/
 
+# ── 个人数据备份（含学习记录，勿上传公开仓库） ──
+Flow_备份_*.json
+flow_study_data*.json
+
 # ── 系统文件 ──
 .DS_Store
 
